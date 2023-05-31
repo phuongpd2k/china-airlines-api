@@ -3985,7 +3985,7 @@ itineranries.forEach((itineranrie) => {
                     }
             });
         } else {
-            flight.type= '1 stop'
+            flight.type= 'transit'
             flight.transitFlightCode = segment.airline.code + segment.flightNumber;
             flight.transitDepartTerminal = segment.beginTerminal;
             flight.transitDepartDateTime = moment(segment.beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');

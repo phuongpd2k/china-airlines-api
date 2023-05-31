@@ -197,10 +197,10 @@ class Flight {
     }
 
     get classType() {
-        return this._classType;
+        return this._class;
     }
     set classType(value) {
-        this._classType = value;
+        this._class = value;
     }
 
     get freeCabinBaggageWeight() {

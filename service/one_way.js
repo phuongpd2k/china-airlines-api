@@ -17,7 +17,6 @@ async function create_search_form(req) {
    {"origin": "LGK",
     "dest": "KUL",
     "adult": 2,
-    "youngAdult": 1,
     "child": 0,
     "infant": 0,
     "dptDate": "2021-09-29"
@@ -26,7 +25,7 @@ async function create_search_form(req) {
     //CABIN: Y = Economy
     const body = req.body;
     const convertedDate = body.dptDate.split("-").join("") + '0000';
-    let data = `B_LOCATION_1=${body.origin}&E_LOCATION_1=${body.dest}&B_DATE_1=${convertedDate}&ADULTS=${body.adult}&YOUNGADTS=${body.youngAdult}&CHILDS=${body.child}&INFANTS=${body.infant}&LANG=GB&CABIN=Y&TRIP_TYPE=O&Channel=IOS&EBA=GB`;
+    let data = `B_LOCATION_1=${body.origin}&E_LOCATION_1=${body.dest}&B_DATE_1=${convertedDate}&ADULTS=${body.adult}&CHILDS=${body.child}&INFANTS=${body.infant}&LANG=GB&CABIN=Y&TRIP_TYPE=O&Channel=IOS&EBA=GB`;
 
     let config = {
         method: 'post',
