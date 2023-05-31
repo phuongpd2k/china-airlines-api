@@ -3978,10 +3978,10 @@ itineranries.forEach((itineranrie) => {
                         flight.otherChild = priceBean.serviceFee + priceBean.oldPrice + priceBean.rebookingFees + priceBean.obFees + priceBean.creditCardFees
                         break;
                     case 'INF':
-                    flight.priceInfant = priceBean.amountWithoutTax;
-                    flight.taxInfant = priceBean.tax;
-                    flight.otherInfant = priceBean.serviceFee + priceBean.oldPrice + priceBean.rebookingFees + priceBean.obFees + priceBean.creditCardFees
-                    break;
+                        flight.priceInfant = priceBean.amountWithoutTax;
+                        flight.taxInfant = priceBean.tax;
+                        flight.otherInfant = priceBean.serviceFee + priceBean.oldPrice + priceBean.rebookingFees + priceBean.obFees + priceBean.creditCardFees
+                        break;
                     }
             });
         } else {
