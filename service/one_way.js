@@ -1,5 +1,6 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
+const qs = require('qs');
 const SOLD_OUT = { "error": true, "msg": "FNF" }
 const ERROR = { "error": true, "msg": "<ERROR_MESSAGE>" }
 async function one_way_process(req) {
@@ -64,10 +65,11 @@ async function get_search_result(searchForms) {
     //   'SITE': '',
     //   'LANGUAGE': '' 
     // });
-    const data = {};
+    const searchData = {};
     searchForms.forEach(element => {
-        data[element.name] = element.value;
+        searchData[element.name] = element.value;
     });
+    const data = qs.stringify(searchData)
     
     let config = {
       method: 'post',
@@ -88,8 +90,9 @@ async function get_search_result(searchForms) {
       data : data
     };
     const searchResponse = await fetchData(config);
-    console.log(searchResponse);
-    return searchResponse;
+    const $ = cheerio.load(searchResponse);
+    console.log($('title').text())
+    return $.html;
 }
 function fetchData(config) {
     return axios.request(config)
