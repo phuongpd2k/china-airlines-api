@@ -1,8 +1,17 @@
-const { Builder, By, until } = require('selenium-webdriver');
+const { Builder, By, Key, until } = require('selenium-webdriver');
 const chrome = require('selenium-webdriver/chrome');
+const { Keyboard } = require('selenium-webdriver/lib/input');
+const fs = require('fs');
 async function getCookies() {
   // Set Chrome options to run in headless mode
   const chromeOptions = new chrome.Options();
+  chromeOptions.addArguments('--user-agent="Mozilla/5.0 (Windows Phone 10.0; Android 4.2.1; Microsoft; Lumia 640 XL LTE) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Mobile Safari/537.36 Edge/12.10166"');
+  chromeOptions.addArguments('--disable-blink-features=AutomationControlled');
+  chromeOptions.addArguments('--disable-dev-shm-usage');
+  chromeOptions.addArguments('--disable-extensions'); // Exclude the collection of enable-automation switches
+  chromeOptions.addArguments('--headless');
+
+  chromeOptions.setUserPreferences({ useAutomationExtension: false }); // Turn-off useAutomationExtension
   chromeOptions.setLoggingPrefs({ performance: 'ALL' });
   // chromeOptions.headless();
   // Create a new Selenium WebDriver instance
@@ -11,8 +20,9 @@ async function getCookies() {
     .build();
   let result = '';
   try {
-    // Navigate to a website
+    await driver.executeScript("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})");
     await driver.get('https://www.china-airlines.com/us/en');
+    // Navigate to a website
     const btnCookie = await driver.wait(until.elementIsEnabled(driver.findElement(By.className('btn-cookie'))));
     btnCookie.click();
     const oneWay = await driver.wait(until.elementIsEnabled(driver.findElement(By.id('One-way'))));
@@ -35,9 +45,10 @@ async function getCookies() {
     const goBtn = await driver.wait(until.elementIsEnabled(driver.findElement(By.id('btnGo'))));
     await driver.executeScript("arguments[0].click();", goBtn);
     await sleep(3000);
-    const captchaBtn = await driver.wait(until.elementIsEnabled(driver.findElement(By.xpath('//*[@id="captcha-box"]/div'))));
-    await captchaBtn.click();
-    await sleep(5000);
+    console.log(await driver.getPageSource())
+    // const captchaBtn = await driver.wait(until.elementIsEnabled(driver.findElement(By.xpath('//*[@id="captcha-box"]/div'))));
+    // await captchaBtn.click();
+    // await sleep(5000);
     // Get the cookies
     const cookies = await driver.manage().getCookies();
 
@@ -62,6 +73,28 @@ async function get(){
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+async function read_data() {
+  const filePath = './config/cookie';
+
+  try {
+    const cookieString = await new Promise((resolve, reject) => {
+      fs.readFile(filePath, 'utf8', (err, data) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(data);
+        }
+      });
+    });
+
+    console.log(cookieString);
+    return cookieString;
+  } catch (error) {
+    console.error('Error reading file:', error);
+  }
+}
+
 get();
 
 
