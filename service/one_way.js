@@ -5,7 +5,7 @@ const qs = require('qs');
 const cookie = require('cookie');
 const SOLD_OUT = { "error": true, "msg": "FNF" }
 const ERROR = { "error": true, "msg": "<ERROR_MESSAGE>" }
-
+const fs = require('fs');
 const {cache} = require ("../job/getCookie.js")
 async function one_way_process(req) {
     const searchForm = await create_search_form(req);
@@ -81,12 +81,12 @@ async function get_session_id(searchForms) {
         url: 'https://book.china-airlines.com/plnext/FPChinaAirlines/Override.action',
         headers: {
             'Host': 'book.china-airlines.com',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
             'Sec-Fetch-Site': 'same-site',
             'Accept-Language': 'en-GB,en-US;q=0.9,en;q=0.8',
             'Sec-Fetch-Mode': 'navigate',
             'Origin': 'https://bookingportal.china-airlines.com',
-            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_4_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
             'Referer': 'https://bookingportal.china-airlines.com/',
             'Sec-Fetch-Dest': 'document',
             'Content-Type': 'application/x-www-form-urlencoded',
@@ -105,8 +105,48 @@ async function get_session_id(searchForms) {
         }
     })
     let sessionId = await getCookieVariable(cookieString,'JSESSIONID')
+    fs.writeFile("response", searchResponse.data, (err) => {
+        if (err) {
+          console.error('Error writing to file:', err);
+          return;
+        }
+      
+        console.log('Data written to file successfully.');
+      });
     console.log(sessionId)
-    return sessionId === null ? '' : sessionId.slice(0,sessionId.lastIndexOf('.'));
+    // return sessionId === null ? '' : sessionId.slice(0,sessionId.lastIndexOf('.'));
+    const pattern = /{"siteConfiguration"\s*:\s*{[^]*}}}/g;
+    const cleanedData = searchResponse.data.replace(/\r?\n|\r/g, '');
+    const matches = cleanedData.match(pattern);
+    const jsonObject = JSON.parse(matches);
+    if(sessionId === '' || jsonObject === null || jsonObject.pageDefinitionConfig.pageData.business.Availability.cube === undefined){
+        return SOLD_OUT;
+    }
+    const listBounds = jsonObject.pageDefinitionConfig.pageData.business.Availability.cube.bounds
+    const availabilityFlight = new Map();
+    listBounds.forEach(bound => {
+        const fareFamilyList = bound.fareFamilyList
+        fareFamilyList.forEach(fare => {
+            let count = 0;
+            while(fare.flights[count] !== undefined){
+                const flight = fare.flights[count];
+                let recommendationsIndex = flight.recommendationsIndex;
+                recommendationsIndex.forEach( index => {
+                    if (availabilityFlight.has(flight.flight.flightId)) {
+                        availabilityFlight.get(flight.flight.flightId).push(index);
+                      } else {
+                        availabilityFlight.set(flight.flight.flightId, [index]);
+                      }
+                })
+                count++;
+            }
+        })
+    })
+    let resultS ='';
+    availabilityFlight.forEach((value,key) => {
+        value.forEach( i => resultS += ';'+key+i)
+    })
+    return resultS;
 }
 function fetchData(config) {
     return axios.request(config)

@@ -9,7 +9,7 @@ async function getCookies() {
   chromeOptions.addArguments('--disable-blink-features=AutomationControlled');
   chromeOptions.addArguments('--disable-dev-shm-usage');
   chromeOptions.addArguments('--disable-extensions'); // Exclude the collection of enable-automation switches
-  chromeOptions.addArguments('--headless');
+  // chromeOptions.addArguments('--headless');
 
   chromeOptions.setUserPreferences({ useAutomationExtension: false }); // Turn-off useAutomationExtension
   chromeOptions.setLoggingPrefs({ performance: 'ALL' });
@@ -41,9 +41,9 @@ async function getCookies() {
     await selectTo.click();
     const searchBtn = await driver.wait(until.elementIsEnabled(driver.findElement(By.xpath('//*[@id="FlightSearchResultPost"]/div[3]/div[2]/div/div[2]/div[2]/div/div[2]/a'))));
     await searchBtn.click();
-    await sleep(3000);
-    const goBtn = await driver.wait(until.elementIsEnabled(driver.findElement(By.id('btnGo'))));
-    await driver.executeScript("arguments[0].click();", goBtn);
+    await sleep(1000);
+
+    await driver.wait(driver.executeScript("document.book.submit()"));
     await sleep(3000);
     console.log(await driver.getPageSource())
     // const captchaBtn = await driver.wait(until.elementIsEnabled(driver.findElement(By.xpath('//*[@id="captcha-box"]/div'))));
