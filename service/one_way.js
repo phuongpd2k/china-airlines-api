@@ -97,6 +97,9 @@ async function get_flight_info(searchForms) {
         },
         data: data
     };
+    if(cookie !== undefined && cookie !== null){
+        console.log("has cookie")
+    }
     const searchResponse = await fetchData(config);
     const setCookieHeader = searchResponse.headers.get('set-cookie');
     let cookieString = '';
