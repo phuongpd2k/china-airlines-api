@@ -9,7 +9,7 @@ const cookie = require('cookie');
 const SOLD_OUT = { "error": true, "msg": "FNF" }
 const ERROR = { "error": true, "msg": "<ERROR_MESSAGE>" }
 const fs = require('fs');
-const { cache } = require("../job/get_cookie.js")
+const { cache } = require("./set_cookie.js")
 async function one_way_process(req) {
     const searchForm = await create_search_form(req);
     if (searchForm.length == 0) {
