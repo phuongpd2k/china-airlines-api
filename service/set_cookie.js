@@ -1,12 +1,12 @@
-const fs = require('fs');
-async function setCookie(data){
-    fs.writeFile("./config/cookie", data, (err) => {
-        if (err) {
-            console.error('Error writing to file:', err);
-            return;
-        }
-    
-        console.log('Data written to file successfully.');
-    });
+
+const InternalCache = require('../service/internal_cache.js');
+const cache = new InternalCache();
+async function setCookie(data) {
+    cache.setData('memCookie', data);
+    const currentTime = new Date();
+    console.log(`${currentTime} memCookie is saved`);
 }
-module.exports = setCookie
+module.exports = {
+    setCookie: setCookie,
+    cache: cache
+}
