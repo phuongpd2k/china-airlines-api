@@ -1,9 +1,10 @@
 class BookingClass {
     constructor(
-      ffCode = null,cabinClass = null
+      ffCode = null,cabinClass = null, classType = null
     ) {
       this.ffCode = ffCode;
       this.cabinClass = cabinClass;
+      this.classType = classType;
     }
     // Getters and setters
 
@@ -19,6 +20,13 @@ class BookingClass {
     }
     set cabinClass(value) {
         this._cabinClass = value;
+    }
+
+    get classType() {
+        return this.classType;
+    }
+    set classType(value) {
+        this._classType = value;
     }
 }
 module.exports = BookingClass;

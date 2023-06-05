@@ -329,5 +329,50 @@ class Flight {
     set otherInfant(value) {
         this._otherInfant = value;
     }
+    toJson(){
+        return {
+                flightCode: this._flightCode,
+                type: this._type,
+                marketingAirline: this._marketingAirline,
+                operatingAirline: this._operatingAirline,
+                aircraftIata: this._aircraftIata,
+                aircraftIcao: this._aircraftIcao,
+                aircraftName: this._aircraftName,
+                departTerminal: this._departTerminal,
+                arrivalTerminal: this._arrivalTerminal,
+                departDateTime: this._departDateTime,
+                arrivalDateTime: this._arrivalDateTime,
+                transitAirport: this._transitAirport,
+                transitFlightCode: this._transitFlightCode,
+                transitMarketingAirline: this._transitMarketingAirline,
+                transitOperatingAirline: this._transitOperatingAirline,
+                transitDepartTerminal: this._transitDepartTerminal,
+                transitArrivalTerminal: this._transitArrivalTerminal,
+                transitDepartDateTime: this._transitDepartDateTime,
+                transitArrivalDateTime: this._transitArrivalDateTime,
+                cabinClass: this._cabinClass,
+                bookingClass: this._bookingClass,
+                class: this._class,
+                freeCabinBaggageWeight: this._freeCabinBaggageWeight,
+                freeCabinBaggageUnit: this._freeCabinBaggageUnit,
+                freeBaggageWeight: this._freeBaggageWeight,
+                freeBaggageUnit: this._freeBaggageUnit,
+                freeBaggageQty: this._freeBaggageQty,
+                refundable: this._refundable,
+                hasMeal: this._hasMeal,
+                hasEntertainment: this._hasEntertainment,
+                currency: this._currency,
+                priceAdult: this._priceAdult,
+                taxAdult: this._taxAdult,
+                otherAdult: this._otherAdult,
+                priceChild: this._priceChild,
+                taxChild: this._taxChild,
+                otherChild: this._otherChild,
+                priceInfant: this._priceInfant,
+                taxInfant: this._taxInfant,
+                otherInfant: this._otherInfant
+            }
+        
+    }
 }
 module.exports = Flight;
