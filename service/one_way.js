@@ -2,17 +2,20 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const e = require('express');
 const qs = require('qs');
+const moment = require('moment');
+const Flight = require('../model/flight.js');
+const BookingClass = require('../model/booking_class.js');
 const cookie = require('cookie');
 const SOLD_OUT = { "error": true, "msg": "FNF" }
 const ERROR = { "error": true, "msg": "<ERROR_MESSAGE>" }
 const fs = require('fs');
-const {cache} = require ("../job/getCookie.js")
+const { cache } = require("../job/get_cookie.js")
 async function one_way_process(req) {
     const searchForm = await create_search_form(req);
     if (searchForm.length == 0) {
         return SOLD_OUT;
     } else {
-        return get_session_id(searchForm)
+        return await get_flight_info(searchForm);
     }
 
 }
@@ -42,7 +45,7 @@ async function create_search_form(req) {
             'Sec-Fetch-Mode': 'navigate',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
             'Origin': 'null',
-            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_4_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148',
+            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_1_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148',
             'Sec-Fetch-Dest': 'document',
             'Content-Type': 'text/plain',
             'Cookie': cookie
@@ -61,7 +64,7 @@ async function create_search_form(req) {
     });
     return inputData;
 }
-async function get_session_id(searchForms) {
+async function get_flight_info(searchForms) {
     // let data = qs.stringify({
     //   'EMBEDDED_TRANSACTION': '',
     //   'ENC': '',
@@ -86,7 +89,7 @@ async function get_session_id(searchForms) {
             'Accept-Language': 'en-GB,en-US;q=0.9,en;q=0.8',
             'Sec-Fetch-Mode': 'navigate',
             'Origin': 'https://bookingportal.china-airlines.com',
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
+            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_1_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148',
             'Referer': 'https://bookingportal.china-airlines.com/',
             'Sec-Fetch-Dest': 'document',
             'Content-Type': 'application/x-www-form-urlencoded',
@@ -98,56 +101,79 @@ async function get_session_id(searchForms) {
     const setCookieHeader = searchResponse.headers.get('set-cookie');
     let cookieString = '';
     setCookieHeader.forEach((cookieHeader) => {
-        if (cookieString === ''){
+        if (cookieString === '') {
             cookieString = cookieHeader;
-        }else{
-            cookieString+= ';'+cookieHeader;
+        } else {
+            cookieString += ';' + cookieHeader;
         }
     })
-    let sessionId = await getCookieVariable(cookieString,'JSESSIONID')
-    fs.writeFile("response", searchResponse.data, (err) => {
-        if (err) {
-          console.error('Error writing to file:', err);
-          return;
-        }
-      
-        console.log('Data written to file successfully.');
-      });
-    console.log(sessionId)
+    let sessionId = await getCookieVariable(cookieString, 'JSESSIONID')
     // return sessionId === null ? '' : sessionId.slice(0,sessionId.lastIndexOf('.'));
     const pattern = /{"siteConfiguration"\s*:\s*{[^]*}}}/g;
     const cleanedData = searchResponse.data.replace(/\r?\n|\r/g, '');
     const matches = cleanedData.match(pattern);
     const jsonObject = JSON.parse(matches);
-    if(sessionId === '' || jsonObject === null || jsonObject.pageDefinitionConfig.pageData.business.Availability.cube === undefined){
+    if(jsonObject === null){
+        console.log('jsonObject null')
         return SOLD_OUT;
     }
-    const listBounds = jsonObject.pageDefinitionConfig.pageData.business.Availability.cube.bounds
-    const availabilityFlight = new Map();
-    listBounds.forEach(bound => {
-        const fareFamilyList = bound.fareFamilyList
-        fareFamilyList.forEach(fare => {
-            let count = 0;
-            while(fare.flights[count] !== undefined){
-                const flight = fare.flights[count];
-                let recommendationsIndex = flight.recommendationsIndex;
-                recommendationsIndex.forEach( index => {
-                    if (availabilityFlight.has(flight.flight.flightId)) {
-                        availabilityFlight.get(flight.flight.flightId).push(index);
-                      } else {
-                        availabilityFlight.set(flight.flight.flightId, [index]);
-                      }
-                })
-                count++;
-            }
-        })
-    })
-    let resultS ='';
-    availabilityFlight.forEach((value,key) => {
-        value.forEach( i => resultS += ';'+key+i)
-    })
-    return resultS;
+    const availability = jsonObject.pageDefinitionConfig.pageData.business.Availability;
+    if (sessionId === null || jsonObject === null || availability === undefined) {
+        console.log('Cookie expried')
+        return SOLD_OUT;
+    }
+    const res = new Array();
+    const recommendationList = availability.recommendationList;
+    for (index in recommendationList) {
+        const recomend = recommendationList[index]
+        const bounds = recomend.bounds[0];
+        const travellerPrices = {
+            ADT: bounds.travellerPrices.ADT,
+            CHD: bounds.travellerPrices.CHD,
+            INF: bounds.travellerPrices.INF
+
+        }
+        for (flightIndex in bounds.flightGroupList) {
+            const flightObject = new Flight();
+            const flight = bounds.flightGroupList[flightIndex];
+            const bookingClass = CLASS_MAP.get(flight.rbd)
+
+            const segments = availability.proposedBounds[0].proposedFlightsGroup[flight.flightId].segments
+            // console.log(segments)
+            if (segments.length > 2) return;
+            segments.forEach((segment) => {
+
+                if (segment.endLocation.locationCode != 'SIN') {
+                    flightObject.flightCode = segment.airline.code + segment.flightNumber;
+                    flightObject.type = 'direct'
+                    flightObject.departTerminal = segment.beginTerminal;
+                    flightObject.departDateTime = moment(segment.beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+                    flightObject.arrivalTerminal = segment.endTerminal;
+                    flightObject.arrivalDateTime = moment(segment.endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+                    flightObject.cabinClass = bookingClass._cabinClass;
+                    flightObject.bookingClass = flight.rbd;
+                    flightObject.class = flight.rbd;
+                    flightObject.currency = availability.currencyBean.code;
+                    flightObject.priceAdult = (travellerPrices.ADT === undefined) ? 0 : travellerPrices.ADT;
+                    flightObject.priceChild = (travellerPrices.CHD === undefined) ? 0 : travellerPrices.CHD;
+                    flightObject.priceInfant = (travellerPrices.INF === undefined) ? 0 : travellerPrices.INF;
+                } else {
+                    flightObject.type = 'transit'
+                    flightObject.transitFlightCode = segment.airline.code + segment.flightNumber;
+                    flightObject.transitDepartTerminal = segment.beginTerminal;
+                    flightObject.transitDepartDateTime = moment(segment.beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+                    flightObject.transitArrivalTerminal = segment.endTerminal;
+                    flightObject.transitArrivalDateTime = moment(segment.endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+                    flightObject.transitAirport = segment.beginLocation.locationCode
+
+                }
+            })
+            res.push(flightObject)
+        }
+    }
+    return res;
 }
+
 function fetchData(config) {
     return axios.request(config)
         .then((response) => {
@@ -159,11 +185,41 @@ function fetchData(config) {
 }
 async function getCookieVariable(cookieString, variableName) {
     const cookies = cookie.parse(cookieString);
-  
+
     if (cookies && cookies[variableName]) {
-      return cookies[variableName];
+        return cookies[variableName];
     } else {
-      return null;
+        return null;
     }
-  }
+}
+const ecoBasic = new BookingClass('VNSHECB', 'ECO Basic');
+const ecoStandard = new BookingClass('VNSHECS', 'ECO Standard');
+const ecoFlex = new BookingClass('VNSHECF', 'ECO Flex ');
+const businessBasic = new BookingClass('VNSHBZB', 'Business Basic');
+const businessStandard = new BookingClass('VNSHBZS', 'Business Standard');
+const businessFlex = new BookingClass('VNSHBZF', 'Business Flex');
+const CLASS_MAP = new Map([
+    { key: 'N', value: ecoBasic },
+    { key: 'Q', value: ecoBasic },
+    { key: 'H', value: ecoBasic },
+    { key: 'R', value: ecoBasic },
+    { key: 'K', value: ecoStandard },
+    { key: 'V', value: ecoStandard },
+    { key: 'T', value: ecoStandard },
+    { key: 'Y', value: ecoFlex },
+    { key: 'B', value: ecoFlex },
+    { key: 'M', value: ecoFlex },
+    { key: 'D', value: businessBasic },
+    { key: 'C', value: businessStandard },
+    { key: 'J', value: businessFlex },
+].map(obj => [obj.key, obj.value]));
 module.exports = one_way_process;
+
+
+/// VNSHECB: ECO Basic - R/Q/H/N
+/// VNSHBZF: Business Flex - J
+/// VNSHBZB: Business Basic - D
+/// VNSHBZS: Business Standard - C
+/// VNSHECS: ECO Standard - K/V/T
+/// VNSHECF: ECO Flex - Y/B/M
+/// ECO Discount L

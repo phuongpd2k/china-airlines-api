@@ -5,8 +5,8 @@ class Flight {
       transitMarketingAirline = null, transitOperatingAirline = null, transitDepartTerminal = null, transitArrivalTerminal = null,
       transitArrivalDateTime = null, transitDepartDateTime = null, cabinClass = null, bookingClass = null, classType = null,
       freeCabinBaggageWeight = null, freeCabinBaggageUnit = null, freeBaggageWeight = null, freeBaggageUnit = null, freeBaggageQty = null,
-      refundable = null, hasMeal = null, hasEntertainment = null, currency = null, priceAdult = null, taxAdult = null, otherAdult = null,
-      priceChild = null, taxChild = null, otherChild = null, priceInfant = null, taxInfant = null, otherInfant = null
+      refundable = null, hasMeal = null, hasEntertainment = null, currency = null, priceAdult = 0, taxAdult = 0, otherAdult = 0,
+      priceChild = 0, taxChild = 0, otherChild = 0, priceInfant = 0, taxInfant = 0, otherInfant = 0
     ) {
       this.flightCode = flightCode;
       this.type = type;
@@ -29,7 +29,7 @@ class Flight {
       this.transitDepartDateTime = transitDepartDateTime;
       this.cabinClass = cabinClass;
       this.bookingClass = bookingClass;
-      this.classType = classType;
+      this.class = classType;
       this.freeCabinBaggageWeight = freeCabinBaggageWeight;
       this.freeCabinBaggageUnit = freeCabinBaggageUnit;
       this.freeBaggageWeight = freeBaggageWeight;
@@ -51,7 +51,7 @@ class Flight {
     }
     // Getters and setters
     get flightCode() {
-        return this._flightCode;
+        return this.flightCode;
     }
     set flightCode(value) {
         this._flightCode = value;
@@ -196,10 +196,10 @@ class Flight {
         this._bookingClass = value;
     }
 
-    get classType() {
+    get class() {
         return this._class;
     }
-    set classType(value) {
+    set class(value) {
         this._class = value;
     }
 
