@@ -23,7 +23,7 @@ app.post('/api/set_cookie', async (req, res) => {
 });
 const PORT = 3000; // Choose the port you want your API to listen on
 app.listen(PORT,async () => {
-  init_cookie();
-  crawl_cookie();
+  // init_cookie();
+  // crawl_cookie();
   console.log(`Server is running on port ${PORT}`);
 });
