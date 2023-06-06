@@ -134,26 +134,33 @@ async function get_flight_info(req, searchForms) {
         return SOLD_OUT;
     }
     const recommendationList = availability.recommendationList;
-    const dptFlightMap = new Map();
-    const rtnFlightMap = new Map();
     for (index in recommendationList) {
+    // for (let index = recommendationList.length - 1; index >= 0; i--) {
         const recomend = recommendationList[index]
-        const bounds = recomend.bounds[0];
-        const travellerPrices = {
-            ADT: bounds.travellerPrices.ADT,
-            CHD: bounds.travellerPrices.CHD,
-            INF: bounds.travellerPrices.INF
+        const dptBounds = recomend.bounds[0];
+        const rtnBounds = recomend.bounds[1];
+        const dptTravellerPrices = {
+            ADT: dptBounds.travellerPrices.ADT,
+            CHD: dptBounds.travellerPrices.CHD,
+            INF: dptBounds.travellerPrices.INF
 
         }
-        // for (flightIndex in bounds.flightGroupList) {
-        const flightObject = new Flight();
-        const flight = bounds.flightGroupList[0];
-        const bookingClass = CLASS_MAP.get(flight.rbd)
-        if (availability.proposedBounds[0].proposedFlightsGroup[flight.flightId] !== undefined) {
-            const dptSegments = availability.proposedBounds[0].proposedFlightsGroup[flight.flightId].segments;
-            // console.log(segments)
-            if (dptSegments.length <= 2) {
-                if (!dptFlightMap.has(bookingClass._classType)) {
+        const rtnTravellerPrices = {
+            ADT: rtnBounds.travellerPrices.ADT,
+            CHD: rtnBounds.travellerPrices.CHD,
+            INF: rtnBounds.travellerPrices.INF
+
+        }
+        for (flightIndex in dptBounds.flightGroupList) {
+            const flightObject = new Flight();
+            const flight = dptBounds.flightGroupList[flightIndex];
+            const bookingClass = CLASS_MAP.get(flight.rbd)
+
+            if (availability.proposedBounds[0].proposedFlightsGroup.find((obj) => obj.proposedBoundId === flight.flightId) !== undefined) {
+                const dptSegments = availability.proposedBounds[0].proposedFlightsGroup.find((obj) => obj.proposedBoundId === flight.flightId).segments
+                // console.log(segments)
+                if (dptSegments.length <= 2) {
+                    // if (!dptFlightMap.has('' + flightObject._flightCode + flightObject._transitFlightCode)) {
                     let dptDepartDateTime = null;
                     let dptArrivalDateTime = null;
                     let dptTransitDepartDateTime = null;
@@ -172,13 +179,18 @@ async function get_flight_info(req, searchForms) {
                         dptTransitDepartTerminal = dptSegments[1].beginTerminal;
                         dptTransitArrivalTerminal = dptSegments[0].endTerminal;
                     }
+                    if (req.body.dptFlightCode !== null && req.body.dptFlightCode !== undefined) {
+                        if (req.body.dptFlightCode !== (dptSegments[0].airline.code + dptSegments[0].flightNumber)) {
+                            continue;
+                        }
+                    }
+                    if (req.body.dptTrsFlightCode !== null && req.body.dptTrsFlightCode !== undefined) {
+                        if (req.body.dptTrsFlightCode !== (dptSegments[1].airline.code + dptSegments[1].flightNumber)) {
+                            continue;
+                        }
+                    }
                     dptSegments.forEach((segment) => {
                         if (segment.endLocation.locationCode != req.body.dest) {
-                            if (req.body.dptFlightCode !== null && req.body.dptFlightCode !== undefined) {
-                                if (req.body.dptFlightCode !== (segment.airline.code + segment.flightNumber)) {
-                                    return;
-                                }
-                            }
                             flightObject.flightCode = segment.airline.code + segment.flightNumber;
                             flightObject.type = 'direct'
                             flightObject.departTerminal = segment.beginTerminal;
@@ -188,6 +200,8 @@ async function get_flight_info(req, searchForms) {
                             flightObject.cabinClass = bookingClass._cabinClass;
                             flightObject.bookingClass = flight.rbd;
                             flightObject.class = flight.rbd;
+                            flightObject.aircraftName = segment.equipment.name;
+                            flightObject.aircraftIata = segment.equipment.code;
                             let match = segment.equipment.name.match(/ [^]*-/g)
                             if (match !== null) {
                                 flightObject.aircraftIcao = match[0].slice(1, -1);
@@ -198,15 +212,10 @@ async function get_flight_info(req, searchForms) {
                                 }
                             }
                             flightObject.currency = availability.currencyBean.code;
-                            flightObject.priceAdult = (travellerPrices.ADT === undefined) ? 0 : travellerPrices.ADT;
-                            flightObject.priceChild = (travellerPrices.CHD === undefined) ? 0 : travellerPrices.CHD;
-                            flightObject.priceInfant = (travellerPrices.INF === undefined) ? 0 : travellerPrices.INF;
+                            flightObject.priceAdult = (dptTravellerPrices.ADT === undefined) ? 0 : dptTravellerPrices.ADT;
+                            flightObject.priceChild = (dptTravellerPrices.CHD === undefined) ? 0 : dptTravellerPrices.CHD;
+                            flightObject.priceInfant = (dptTravellerPrices.INF === undefined) ? 0 : dptTravellerPrices.INF;
                         } else {
-                            if (req.body.dptTrsFlightCode !== null && req.body.dptTrsFlightCode !== undefined) {
-                                if (req.body.dptTrsFlightCode !== (segment.airline.code + segment.flightNumber)) {
-                                    return;
-                                }
-                            }
                             flightObject.type = 'transit'
                             flightObject.transitFlightCode = segment.airline.code + segment.flightNumber;
                             flightObject.transitDepartTerminal = dptTransitDepartTerminal
@@ -220,19 +229,23 @@ async function get_flight_info(req, searchForms) {
                             flightObject.transitArrivalDateTime = dptTransitArrivalDateTime
                         }
                     })
-                    if (!dptMap.has(flightObject._flightCode + flightObject._transitAirport + flightObject._transitFlightCode + flightObject._bookingClass)) {
+                    if (!dptMap.has('' + flightObject._flightCode + flightObject._transitFlightCode)) {
                         dpt.push(flightObject.toJson())
-                        dptMap.set('' + flightObject._flightCode + flightObject._transitAirport + flightObject._transitFlightCode + flightObject._bookingClass)
+                        dptMap.set('' + flightObject._flightCode + flightObject._transitFlightCode)
                     }
-                    dptFlightMap.set('' + flightObject._flightCode + flightObject._transitFlightCode, dpt.length);
+                    // dptFlightMap.set('' + flightObject._flightCode + flightObject._transitFlightCode, dpt.length);
+                    // }
                 }
             }
         }
-
-        if (availability.proposedBounds[1].proposedFlightsGroup[flight.flightId] !== undefined) {
-            const rtnSegments = availability.proposedBounds[1].proposedFlightsGroup[flight.flightId].segments
-            if (rtnSegments.length <= 2) {
-                if (!rtnFlightMap.has(bookingClass._classType)) {
+        for (flightIndex in rtnBounds.flightGroupList) {
+            const flightObject = new Flight();
+            const flight = rtnBounds.flightGroupList[flightIndex];
+            const bookingClass = CLASS_MAP.get(flight.rbd)
+            if (availability.proposedBounds[1].proposedFlightsGroup.find((obj) => obj.proposedBoundId === flight.flightId) !== undefined) {
+                const rtnSegments = availability.proposedBounds[1].proposedFlightsGroup.find((obj) => obj.proposedBoundId === flight.flightId).segments
+                if (rtnSegments.length <= 2) {
+                    // if (!rtnFlightMap.has('' + flightObject._flightCode + flightObject._transitFlightCode)) {
                     let rtnDepartDateTime = null;
                     let rtnArrivalDateTime = null;
                     let rtnTransitDepartDateTime = null;
@@ -263,6 +276,8 @@ async function get_flight_info(req, searchForms) {
                             flightObject.bookingClass = flight.rbd;
                             flightObject.class = flight.rbd;
                             flightObject.currency = availability.currencyBean.code;
+                            flightObject.aircraftName = segment.equipment.name;
+                            flightObject.aircraftIata = segment.equipment.code;
                             let match = segment.equipment.name.match(/ [^]*-/g)
                             if (match !== null) {
                                 flightObject.aircraftIcao = match[0].slice(1, -1);
@@ -272,9 +287,9 @@ async function get_flight_info(req, searchForms) {
                                     flightObject.aircraftIcao = match[0].slice(1);
                                 }
                             }
-                            flightObject.priceAdult = (travellerPrices.ADT === undefined) ? 0 : travellerPrices.ADT;
-                            flightObject.priceChild = (travellerPrices.CHD === undefined) ? 0 : travellerPrices.CHD;
-                            flightObject.priceInfant = (travellerPrices.INF === undefined) ? 0 : travellerPrices.INF;
+                            flightObject.priceAdult = (rtnTravellerPrices.ADT === undefined) ? 0 : rtnTravellerPrices.ADT;
+                            flightObject.priceChild = (rtnTravellerPrices.CHD === undefined) ? 0 : rtnTravellerPrices.CHD;
+                            flightObject.priceInfant = (rtnTravellerPrices.INF === undefined) ? 0 : rtnTravellerPrices.INF;
                         } else {
                             flightObject.type = 'transit'
                             flightObject.transitFlightCode = segment.airline.code + segment.flightNumber;
@@ -289,16 +304,15 @@ async function get_flight_info(req, searchForms) {
                             flightObject.transitArrivalDateTime = rtnTransitArrivalDateTime;
                         }
                     })
-                    if (!rtnMap.has(flightObject._flightCode + flightObject._transitAirport + flightObject._transitFlightCode + flightObject._bookingClass)) {
+                    if (!rtnMap.has('' + flightObject._flightCode + flightObject._transitFlightCode)) {
                         rtn.push(flightObject.toJson())
-                        rtnMap.set('' + flightObject._flightCode + flightObject._transitAirport + flightObject._transitFlightCode + flightObject._bookingClass)
+                        rtnMap.set('' + flightObject._flightCode + flightObject._transitFlightCode)
                     }
-                    rtnFlightMap.set('' + flightObject._flightCode + flightObject._transitFlightCode, rtn.length);
+                    // rtnFlightMap.set('' + flightObject._flightCode + flightObject._transitFlightCode, rtn.length);
+                    // }
                 }
             }
-
         }
-
     }
     const res = {
         "dpt": dpt,

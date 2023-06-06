@@ -13,149 +13,36 @@ fs.readFile(filePath, 'utf8', async (err, data) => {
         console.error('Error reading file:', err);
         return;
     }
-    const pattern = /{"siteConfiguration"\s*:\s*{[^]*}}}/g;
-    const matches = data.match(pattern);
-    const jsonObject = JSON.parse(matches);
+    // const pattern = /{"siteConfiguration"\s*:\s*{[^]*}}}/g;
+    // const matches = data.match(pattern);
+    const jsonObject = JSON.parse(data);
+    if (jsonObject === null) {
+        console.log('jsonObject null')
+        return SOLD_OUT;
+    }
     const availability = jsonObject.pageDefinitionConfig.pageData.business.Availability;
-
     const recommendationList = availability.recommendationList;
-    for (index in recommendationList) {
-        const recomend = recommendationList[index]
-        const bounds = recomend.bounds[0];
-        const travellerPrices = {
-            ADT: bounds.travellerPrices.ADT,
-            CHD: bounds.travellerPrices.CHD,
-            INF: bounds.travellerPrices.INF
-
-        }
-        // for (flightIndex in bounds.flightGroupList) {
-            const flightObject = new Flight();
-            const flight = bounds.flightGroupList[0];
-            const bookingClass = CLASS_MAP.get(flight.rbd)
-
-            const dptSegments = availability.proposedBounds[0].proposedFlightsGroup[flight.flightId].segments
-            const rtnSegments = availability.proposedBounds[1].proposedFlightsGroup[flight.flightId].segments
-            // console.log(segments)
-            if (dptSegments.length > 2) return;
-            let dptDepartDateTime = null;
-            let dptArrivalDateTime = null;
-            let dptTransitDepartDateTime = null;
-            let dptTransitArrivalDateTime = null;
-            if (dptSegments.length== 2) {
-                dptDepartDateTime = moment(dptSegments[0].beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-                dptArrivalDateTime = moment(dptSegments[1].endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-                dptTransitDepartDateTime = moment(dptSegments[0].endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-                dptTransitArrivalDateTime = moment(dptSegments[1].beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-            }
-            dptSegments.forEach((segment) => {
-                if (segment.endLocation.locationCode != 'SIN') {
-                    flightObject.flightCode = segment.airline.code + segment.flightNumber;
-                    flightObject.type = 'direct'
-                    flightObject.departTerminal = segment.beginTerminal;
-                    flightObject.departDateTime = moment(segment.beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-                    flightObject.arrivalTerminal = segment.endTerminal;
-                    flightObject.arrivalDateTime = moment(segment.endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-                    flightObject.cabinClass = bookingClass._cabinClass;
-                    flightObject.bookingClass = flight.rbd;
-                    flightObject.class = flight.rbd;
-                    flightObject.currency = availability.currencyBean.code;
-                    flightObject.priceAdult = (travellerPrices.ADT === undefined) ? 0 : travellerPrices.ADT;
-                    flightObject.priceChild = (travellerPrices.CHD === undefined) ? 0 : travellerPrices.CHD;
-                    flightObject.priceInfant = (travellerPrices.INF === undefined) ? 0 : travellerPrices.INF;
-                } else {
-                    flightObject.type = 'transit'
-                    flightObject.transitFlightCode = segment.airline.code + segment.flightNumber;
-                    flightObject.transitDepartTerminal = segment.beginTerminal;
-                    flightObject.transitArrivalTerminal = segment.endTerminal;
-                    flightObject.transitAirport = segment.beginLocation.locationCode;
-                    flightObject.departDateTime = dptDepartDateTime;
-                    flightObject.arrivalDateTime = dptArrivalDateTime
-                    flightObject.transitDepartDateTime = dptTransitDepartDateTime
-                    flightObject.transitArrivalDateTime = dptTransitArrivalDateTime
-                }
-            })
-            if(!dptMap.has(flightObject._flightCode+flightObject._transitAirport+flightObject._transitFlightCode+flightObject._bookingClass)){
-                dpt.push(flightObject.toJson())
-                dptMap.set(''+flightObject._flightCode+flightObject._transitAirport+flightObject._transitFlightCode+flightObject._bookingClass)
-            }
-
-            if (rtnSegments.length > 2) return;
-            let rtnDepartDateTime = null;
-            let rtnArrivalDateTime = null;
-            let rtnTransitDepartDateTime = null;
-            let rtnTransitArrivalDateTime = null;
-            if (rtnSegments.length== 2) {
-                rtnDepartDateTime = moment(rtnSegments[0].beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-                rtnArrivalDateTime = moment(rtnSegments[1].endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-                rtnTransitDepartDateTime = moment(rtnSegments[0].endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-                rtnTransitArrivalDateTime = moment(rtnSegments[1].beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-            }
-            rtnSegments.forEach((segment) => {
-                if (segment.endLocation.locationCode != 'HAN') {
-                    flightObject.flightCode = segment.airline.code + segment.flightNumber;
-                    flightObject.type = 'direct'
-                    flightObject.departTerminal = segment.beginTerminal;
-                    flightObject.departDateTime = moment(segment.beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-                    flightObject.arrivalTerminal = segment.endTerminal;
-                    flightObject.arrivalDateTime = moment(segment.endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-                    flightObject.cabinClass = bookingClass._cabinClass;
-                    flightObject.bookingClass = flight.rbd;
-                    flightObject.class = flight.rbd;
-                    flightObject.currency = availability.currencyBean.code;
-                    flightObject.priceAdult = (travellerPrices.ADT === undefined) ? 0 : travellerPrices.ADT;
-                    flightObject.priceChild = (travellerPrices.CHD === undefined) ? 0 : travellerPrices.CHD;
-                    flightObject.priceInfant = (travellerPrices.INF === undefined) ? 0 : travellerPrices.INF;
-                } else {
-                    flightObject.type = 'transit'
-                    flightObject.transitFlightCode = segment.airline.code + segment.flightNumber;
-                    flightObject.transitDepartTerminal = segment.beginTerminal;
-                    flightObject.transitArrivalTerminal = segment.endTerminal;
-                    flightObject.transitAirport = segment.beginLocation.locationCode;
-                    flightObject.departDateTime = rtnDepartDateTime;
-                    flightObject.arrivalDateTime = rtnArrivalDateTime;
-                    flightObject.transitDepartDateTime = rtnTransitDepartDateTime;
-                    flightObject.transitArrivalDateTime = rtnTransitArrivalDateTime;
-                }
-            })
-            if(!rtnMap.has(flightObject._flightCode+flightObject._transitAirport+flightObject._transitFlightCode+flightObject._bookingClass)){
-                rtn.push(flightObject.toJson())
-                rtnMap.set(''+flightObject._flightCode+flightObject._transitAirport+flightObject._transitFlightCode+flightObject._bookingClass)
-            }
+    const proposedBounds = availability.proposedBounds;
+    const dptFlights = proposedBounds[0].proposedFlightsGroup
+    console.log(dptFlights)
+    const rtnBounds = proposedBounds[1]
+    for(flightIndex in dptFlights){
+        const recomend = recommendationList.find(recommendation => recommendation.bounds[0].flightGroupList.find(flight => flight.flightId === dptFlights[flightIndex].proposedBoundId))
+        
+        console.log(recomend.bounds[0].travellerPrices)
     }
 
 
-    // const listBounds = availability.cube.bounds
-    // listBounds.forEach(async bound => {
-    //     const fareFamilyList = bound.fareFamilyList
-    //     for (const flightObj of fareFamilyList) {
-    //         const flights = flightObj.flights;
-    //         for (const key in flights) {
-    //             const flight = flights[key];
-    //             const { flightId, rbd } = flight.flight;
-    //             const foundFlight = get_flight_info(flightId, rbd, availability)
-    //             if (foundFlight !== undefined)
-    //                 res.push(foundFlight)
-    //         }
-    //     }
-    // })
 
-
-
-    //LANGUAGE=GB&COUNTRY_SITE=GB&SITE=CARMCARM&BOOKING_FLOW=REVENUE&TRIP_FLOW=YES
-    //&EXTERNAL_ID=BOOKING&OFFICE_ID=SGNCI08AB&TRIP_TYPE=O&PRICING_TYPE=O
-    //&RECOMMENDATION_ID_1=0&FLIGHT_ID_1=0&IS_MILES_MODE=false&PAGE_TICKET=0
-
-
-
-    const res =({
-        "dpt":dpt,
-        "rtn":rtn
+    const res = ({
+        "dpt": dpt,
+        "rtn": rtn
     });
 
-    // res.forEach(flight => {
-    //     console.log(flight)
-    // })
-    console.log(res)
+    rtn.forEach(flight => {
+        console.log(flight)
+    })
+    console.log(rtn.length)
 
 
 

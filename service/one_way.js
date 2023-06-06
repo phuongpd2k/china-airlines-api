@@ -142,7 +142,7 @@ async function get_flight_info(req, searchForms) {
 
             const bookingClass = CLASS_MAP.get(flight.rbd)
 
-            const segments = availability.proposedBounds[0].proposedFlightsGroup[flight.flightId].segments
+            const segments = availability.proposedBounds[0].proposedFlightsGroup.find((obj) => obj.proposedBoundId === flight.flightId).segments
             // console.log(segments)
             let departDateTime = null;
             let arrivalDateTime = null;
