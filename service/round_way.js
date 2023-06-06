@@ -8,8 +8,8 @@ const BookingClass = require('../model/booking_class.js');
 const cookie = require('cookie');
 const SOLD_OUT = { "error": true, "msg": "FNF" }
 const ERROR = { "error": true, "msg": "<ERROR_MESSAGE>" }
-const fs = require('fs');
 const { cache } = require("./set_cookie.js")
+
 async function one_way_process(req) {
     const searchForm = await create_search_form(req);
     if (searchForm.length == 0) {
@@ -118,13 +118,6 @@ async function get_flight_info(req, searchForms) {
             cookieString += ';' + cookieHeader;
         }
     })
-    fs.writeFile('response', searchResponse.data, (err) => {
-        if (err) {
-            console.error('Error writing to file:', err);
-            return;
-        }
-        console.log('Data written to file successfully.');
-    });
     let sessionId = await getCookieVariable(cookieString, 'JSESSIONID')
     // return sessionId === null ? '' : sessionId.slice(0,sessionId.lastIndexOf('.'));
     const pattern = /{"siteConfiguration"\s*:\s*{[^]*}}}/g;
@@ -165,14 +158,27 @@ async function get_flight_info(req, searchForms) {
                     let dptArrivalDateTime = null;
                     let dptTransitDepartDateTime = null;
                     let dptTransitArrivalDateTime = null;
+                    let dptDepartTerminal = null;
+                    let dptArrivalTerminal = null;
+                    let dptTransitDepartTerminal = null;
+                    let dptTransitArrivalTerminal = null;
                     if (dptSegments.length == 2) {
                         dptDepartDateTime = moment(dptSegments[0].beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
                         dptArrivalDateTime = moment(dptSegments[1].endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-                        dptTransitDepartDateTime = moment(dptSegments[0].endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-                        dptTransitArrivalDateTime = moment(dptSegments[1].beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+                        dptTransitDepartDateTime = moment(dptSegments[1].beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+                        dptTransitArrivalDateTime = moment(dptSegments[0].endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+                        dptDepartTerminal = dptSegments[0].beginTerminal;
+                        dptArrivalTerminal = dptSegments[1].endTerminal;
+                        dptTransitDepartTerminal = dptSegments[1].beginTerminal;
+                        dptTransitArrivalTerminal = dptSegments[0].endTerminal;
                     }
                     dptSegments.forEach((segment) => {
                         if (segment.endLocation.locationCode != req.body.dest) {
+                            if (req.body.dptFlightCode !== null && req.body.dptFlightCode !== undefined) {
+                                if (req.body.dptFlightCode !== (segment.airline.code + segment.flightNumber)) {
+                                    return;
+                                }
+                            }
                             flightObject.flightCode = segment.airline.code + segment.flightNumber;
                             flightObject.type = 'direct'
                             flightObject.departTerminal = segment.beginTerminal;
@@ -182,15 +188,31 @@ async function get_flight_info(req, searchForms) {
                             flightObject.cabinClass = bookingClass._cabinClass;
                             flightObject.bookingClass = flight.rbd;
                             flightObject.class = flight.rbd;
+                            let match = segment.equipment.name.match(/ [^]*-/g)
+                            if (match !== null) {
+                                flightObject.aircraftIcao = match[0].slice(1, -1);
+                            } else {
+                                match = segment.equipment.name.match(/ [^]*/g);
+                                if (match !== null) {
+                                    flightObject.aircraftIcao = match[0].slice(1);
+                                }
+                            }
                             flightObject.currency = availability.currencyBean.code;
                             flightObject.priceAdult = (travellerPrices.ADT === undefined) ? 0 : travellerPrices.ADT;
                             flightObject.priceChild = (travellerPrices.CHD === undefined) ? 0 : travellerPrices.CHD;
                             flightObject.priceInfant = (travellerPrices.INF === undefined) ? 0 : travellerPrices.INF;
                         } else {
+                            if (req.body.dptTrsFlightCode !== null && req.body.dptTrsFlightCode !== undefined) {
+                                if (req.body.dptTrsFlightCode !== (segment.airline.code + segment.flightNumber)) {
+                                    return;
+                                }
+                            }
                             flightObject.type = 'transit'
                             flightObject.transitFlightCode = segment.airline.code + segment.flightNumber;
-                            flightObject.transitDepartTerminal = segment.beginTerminal;
-                            flightObject.transitArrivalTerminal = segment.endTerminal;
+                            flightObject.transitDepartTerminal = dptTransitDepartTerminal
+                            flightObject.transitArrivalTerminal = dptTransitArrivalTerminal
+                            flightObject.departTerminal = dptDepartTerminal;
+                            flightObject.arrivalTerminal = dptArrivalTerminal;
                             flightObject.transitAirport = segment.beginLocation.locationCode;
                             flightObject.departDateTime = dptDepartDateTime;
                             flightObject.arrivalDateTime = dptArrivalDateTime
@@ -202,7 +224,7 @@ async function get_flight_info(req, searchForms) {
                         dpt.push(flightObject.toJson())
                         dptMap.set('' + flightObject._flightCode + flightObject._transitAirport + flightObject._transitFlightCode + flightObject._bookingClass)
                     }
-                    dptFlightMap.set( ''+flightObject._flightCode+flightObject._transitFlightCode, dpt.length);
+                    dptFlightMap.set('' + flightObject._flightCode + flightObject._transitFlightCode, dpt.length);
                 }
             }
         }
@@ -215,11 +237,19 @@ async function get_flight_info(req, searchForms) {
                     let rtnArrivalDateTime = null;
                     let rtnTransitDepartDateTime = null;
                     let rtnTransitArrivalDateTime = null;
+                    let rtnDepartTerminal = null;
+                    let rtnArrivalTerminal = null;
+                    let rtnTransitDepartTerminal = null;
+                    let rtnTransitArrivalTerminal = null;
                     if (rtnSegments.length == 2) {
                         rtnDepartDateTime = moment(rtnSegments[0].beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
                         rtnArrivalDateTime = moment(rtnSegments[1].endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-                        rtnTransitDepartDateTime = moment(rtnSegments[0].endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-                        rtnTransitArrivalDateTime = moment(rtnSegments[1].beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+                        rtnTransitDepartDateTime = moment(rtnSegments[1].beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+                        rtnTransitArrivalDateTime = moment(rtnSegments[0].endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+                        rtnDepartTerminal = rtnSegments[0].beginTerminal;
+                        rtnArrivalTerminal = rtnSegments[1].endTerminal;
+                        rtnTransitDepartTerminal = rtnSegments[1].beginTerminal;
+                        rtnTransitArrivalTerminal = rtnSegments[0].endTerminal;
                     }
                     rtnSegments.forEach((segment) => {
                         if (segment.endLocation.locationCode != req.body.origin) {
@@ -233,14 +263,25 @@ async function get_flight_info(req, searchForms) {
                             flightObject.bookingClass = flight.rbd;
                             flightObject.class = flight.rbd;
                             flightObject.currency = availability.currencyBean.code;
+                            let match = segment.equipment.name.match(/ [^]*-/g)
+                            if (match !== null) {
+                                flightObject.aircraftIcao = match[0].slice(1, -1);
+                            } else {
+                                match = segment.equipment.name.match(/ [^]*/g);
+                                if (match !== null) {
+                                    flightObject.aircraftIcao = match[0].slice(1);
+                                }
+                            }
                             flightObject.priceAdult = (travellerPrices.ADT === undefined) ? 0 : travellerPrices.ADT;
                             flightObject.priceChild = (travellerPrices.CHD === undefined) ? 0 : travellerPrices.CHD;
                             flightObject.priceInfant = (travellerPrices.INF === undefined) ? 0 : travellerPrices.INF;
                         } else {
                             flightObject.type = 'transit'
                             flightObject.transitFlightCode = segment.airline.code + segment.flightNumber;
-                            flightObject.transitDepartTerminal = segment.beginTerminal;
-                            flightObject.transitArrivalTerminal = segment.endTerminal;
+                            flightObject.transitDepartTerminal = rtnTransitDepartTerminal
+                            flightObject.transitArrivalTerminal = rtnTransitArrivalTerminal
+                            flightObject.departTerminal = rtnDepartTerminal;
+                            flightObject.arrivalTerminal = rtnArrivalTerminal;
                             flightObject.transitAirport = segment.beginLocation.locationCode;
                             flightObject.departDateTime = rtnDepartDateTime;
                             flightObject.arrivalDateTime = rtnArrivalDateTime;
@@ -252,7 +293,7 @@ async function get_flight_info(req, searchForms) {
                         rtn.push(flightObject.toJson())
                         rtnMap.set('' + flightObject._flightCode + flightObject._transitAirport + flightObject._transitFlightCode + flightObject._bookingClass)
                     }
-                    rtnFlightMap.set(''+flightObject._flightCode+flightObject._transitFlightCode, rtn.length);
+                    rtnFlightMap.set('' + flightObject._flightCode + flightObject._transitFlightCode, rtn.length);
                 }
             }
 
