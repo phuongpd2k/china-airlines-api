@@ -21,6 +21,11 @@
     "moment": "^2.29.4",
     "node-cron": "^3.0.2",
     "node-fetch": "^3.3.1",
-    "selenium-webdriver": "^4.9.2"
+    "jimp": "^0.16.1",
+    "opencv-wasm": "^4.3.0-5",
+    "pixelmatch": "^5.2.1",
+    "puppeteer": "^5.5.0",
+    "puppeteer-extra": "^3.1.15",
+    "puppeteer-extra-plugin-stealth": "^2.6.5"
   }
 }

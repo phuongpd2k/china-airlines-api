@@ -3,7 +3,6 @@ const filePath = './html';
 const Flight = require('./model/flight.js');
 const BookingClass = require('./model/booking_class.js');
 const moment = require('moment');
-const res = new Array();
 const dpt = new Array();
 const rtn = new Array();
 const dptMap = new Map();
@@ -29,15 +28,25 @@ fs.readFile(filePath, 'utf8', async (err, data) => {
             INF: bounds.travellerPrices.INF
 
         }
-        for (flightIndex in bounds.flightGroupList) {
+        // for (flightIndex in bounds.flightGroupList) {
             const flightObject = new Flight();
-            const flight = bounds.flightGroupList[flightIndex];
+            const flight = bounds.flightGroupList[0];
             const bookingClass = CLASS_MAP.get(flight.rbd)
 
             const dptSegments = availability.proposedBounds[0].proposedFlightsGroup[flight.flightId].segments
             const rtnSegments = availability.proposedBounds[1].proposedFlightsGroup[flight.flightId].segments
             // console.log(segments)
             if (dptSegments.length > 2) return;
+            let dptDepartDateTime = null;
+            let dptArrivalDateTime = null;
+            let dptTransitDepartDateTime = null;
+            let dptTransitArrivalDateTime = null;
+            if (dptSegments.length== 2) {
+                dptDepartDateTime = moment(dptSegments[0].beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+                dptArrivalDateTime = moment(dptSegments[1].endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+                dptTransitDepartDateTime = moment(dptSegments[0].endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+                dptTransitArrivalDateTime = moment(dptSegments[1].beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+            }
             dptSegments.forEach((segment) => {
                 if (segment.endLocation.locationCode != 'SIN') {
                     flightObject.flightCode = segment.airline.code + segment.flightNumber;
@@ -57,19 +66,30 @@ fs.readFile(filePath, 'utf8', async (err, data) => {
                     flightObject.type = 'transit'
                     flightObject.transitFlightCode = segment.airline.code + segment.flightNumber;
                     flightObject.transitDepartTerminal = segment.beginTerminal;
-                    flightObject.transitDepartDateTime = moment(segment.beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
                     flightObject.transitArrivalTerminal = segment.endTerminal;
-                    flightObject.transitArrivalDateTime = moment(segment.endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-                    flightObject.transitAirport = segment.beginLocation.locationCode
-
+                    flightObject.transitAirport = segment.beginLocation.locationCode;
+                    flightObject.departDateTime = dptDepartDateTime;
+                    flightObject.arrivalDateTime = dptArrivalDateTime
+                    flightObject.transitDepartDateTime = dptTransitDepartDateTime
+                    flightObject.transitArrivalDateTime = dptTransitArrivalDateTime
                 }
             })
             if(!dptMap.has(flightObject._flightCode+flightObject._transitAirport+flightObject._transitFlightCode+flightObject._bookingClass)){
-                dpt.push(flightObject)
+                dpt.push(flightObject.toJson())
                 dptMap.set(''+flightObject._flightCode+flightObject._transitAirport+flightObject._transitFlightCode+flightObject._bookingClass)
             }
 
             if (rtnSegments.length > 2) return;
+            let rtnDepartDateTime = null;
+            let rtnArrivalDateTime = null;
+            let rtnTransitDepartDateTime = null;
+            let rtnTransitArrivalDateTime = null;
+            if (rtnSegments.length== 2) {
+                rtnDepartDateTime = moment(rtnSegments[0].beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+                rtnArrivalDateTime = moment(rtnSegments[1].endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+                rtnTransitDepartDateTime = moment(rtnSegments[0].endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+                rtnTransitArrivalDateTime = moment(rtnSegments[1].beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+            }
             rtnSegments.forEach((segment) => {
                 if (segment.endLocation.locationCode != 'HAN') {
                     flightObject.flightCode = segment.airline.code + segment.flightNumber;
@@ -89,20 +109,18 @@ fs.readFile(filePath, 'utf8', async (err, data) => {
                     flightObject.type = 'transit'
                     flightObject.transitFlightCode = segment.airline.code + segment.flightNumber;
                     flightObject.transitDepartTerminal = segment.beginTerminal;
-                    flightObject.transitDepartDateTime = moment(segment.beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
                     flightObject.transitArrivalTerminal = segment.endTerminal;
-                    flightObject.transitArrivalDateTime = moment(segment.endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-                    flightObject.transitAirport = segment.beginLocation.locationCode
-
+                    flightObject.transitAirport = segment.beginLocation.locationCode;
+                    flightObject.departDateTime = rtnDepartDateTime;
+                    flightObject.arrivalDateTime = rtnArrivalDateTime;
+                    flightObject.transitDepartDateTime = rtnTransitDepartDateTime;
+                    flightObject.transitArrivalDateTime = rtnTransitArrivalDateTime;
                 }
             })
             if(!rtnMap.has(flightObject._flightCode+flightObject._transitAirport+flightObject._transitFlightCode+flightObject._bookingClass)){
-                rtn.push(flightObject)
+                rtn.push(flightObject.toJson())
                 rtnMap.set(''+flightObject._flightCode+flightObject._transitAirport+flightObject._transitFlightCode+flightObject._bookingClass)
             }
-            
-            // console.log(res)
-        }
     }
 
 
@@ -129,12 +147,15 @@ fs.readFile(filePath, 'utf8', async (err, data) => {
 
 
 
-    res.push(dpt);
-    res.push(rtn);
-    rtn.forEach(flight => {
-        console.log(flight)
-    })
-    console.log(rtn.length)
+    const res =({
+        "dpt":dpt,
+        "rtn":rtn
+    });
+
+    // res.forEach(flight => {
+    //     console.log(flight)
+    // })
+    console.log(res)
 
 
 
