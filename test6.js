@@ -123,8 +123,6 @@ fs.readFile(filePath, 'utf8', async (err, data) => {
             }
             return smallestObj;
           }, null);
-        // console.log(recomend.bounds[1])
-        // return;
         if(recomend === undefined || recomend === null){
             continue;
         }

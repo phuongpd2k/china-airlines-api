@@ -8,18 +8,18 @@ const BookingClass = require('../model/booking_class.js');
 const cookie = require('cookie');
 const SOLD_OUT = { "error": true, "msg": "FNF" }
 const ERROR = { "error": true, "msg": "<ERROR_MESSAGE>" }
-const { cache } = require("./set_cookie.js")
+const redisClient = require('../config/redisClient');
 
 async function one_way_process(req) {
-    const searchForm = await create_search_form(req);
+    const cookieIndex =  Math.floor(Math.random() * 5) + 1;
+    const searchForm = await create_search_form(req, cookieIndex);
     if (searchForm.length == 0) {
         return SOLD_OUT;
     } else {
-        return await get_flight_info(req, searchForm);
+        return await get_flight_info(req, searchForm,cookieIndex);
     }
-
 }
-async function create_search_form(req) {
+async function create_search_form(req,cookieIndex) {
     /**
    {
     "origin": "LGK",
@@ -37,7 +37,7 @@ async function create_search_form(req) {
     const dptDate = body.dptDate.split("-").join("") + '0000';
     const rtnDate = body.rtnDate.split("-").join("") + '0000';
     let data = `B_LOCATION_1=${body.origin}&E_LOCATION_1=${body.dest}&B_DATE_1=${dptDate}&B_LOCATION_2=${body.dest}&E_LOCATION_2=${body.origin}&B_DATE_2=${rtnDate}&ADULTS=${body.adult}&CHILDS=${body.child}&INFANTS=${body.infant}&LANG=GB&CABIN=Y&TRIP_TYPE=R&Channel=IOS&EBA=GB`;
-    let cookie = cache.getData('memCookie');
+    let cookie = await getCookieFromRedis(cookieIndex);
     let config = {
         method: 'post',
         maxBodyLength: Infinity,
@@ -68,7 +68,7 @@ async function create_search_form(req) {
     });
     return inputData;
 }
-async function get_flight_info(req, searchForms) {
+async function get_flight_info(req, searchForms,cookieIndex) {
     const dptMap = new Map();
     const rtnMap = new Map();
     const dpt = new Array();
@@ -85,7 +85,7 @@ async function get_flight_info(req, searchForms) {
         searchData[element.name] = element.value;
     });
     const data = qs.stringify(searchData)
-    let cookie = cache.getData('memCookie')
+    let cookie = await getCookieFromRedis(cookieIndex);
     let config = {
         method: 'post',
         maxBodyLength: Infinity,
@@ -106,7 +106,7 @@ async function get_flight_info(req, searchForms) {
         data: data
     };
     if (cookie !== undefined && cookie !== null) {
-        console.log("has cookie")
+        console.log(`has cookie ${cookieIndex}`)
     }
     const searchResponse = await fetchData(config);
     const setCookieHeader = searchResponse.headers.get('set-cookie');
@@ -139,7 +139,7 @@ async function get_flight_info(req, searchForms) {
     const rtnFlights = proposedBounds[1].proposedFlightsGroup
     for (flightIndex in dptFlights) {
         const flightObject = new Flight();
-        const recomendList = recommendationList.filter(recommendation => recommendation.bounds[0].flightGroupList.find(flight => flight.flightId === rtnFlights[flightIndex].proposedBoundId))
+        const recomendList = recommendationList.filter(recommendation => recommendation.bounds[0].flightGroupList.find(flight => flight.flightId === dptFlights[flightIndex].proposedBoundId))
         const recomend = recomendList.reduce((smallestObj, currentObj) => {
             if (!smallestObj || currentObj.bounds[0].travellerPrices.ADT < smallestObj.bounds[0].travellerPrices.ADT) {
               return currentObj;
@@ -233,7 +233,6 @@ async function get_flight_info(req, searchForms) {
             dptMap.set('' + flightObject._flightCode + flightObject._transitFlightCode)
         }
     }
-    console.log("-------------")
     for (flightIndex in rtnFlights) {
         const flightObject = new Flight();
         const recomendList = recommendationList.filter(recommendation => recommendation.bounds[1].flightGroupList.find(flight => flight.flightId === rtnFlights[flightIndex].proposedBoundId))
@@ -243,7 +242,7 @@ async function get_flight_info(req, searchForms) {
             }
             return smallestObj;
           }, null);
-        const rtnSegments = dptFlights[flightIndex].segments;
+        const rtnSegments = rtnFlights[flightIndex].segments;
         if(rtnSegments.length>2) continue;
         if(recomend === undefined || recomend === null){
             continue;
@@ -347,6 +346,11 @@ async function getCookieVariable(cookieString, variableName) {
     } else {
         return null;
     }
+}
+async function getCookieFromRedis(cookieIndex) {
+    const redisValue = await redisClient.get(`farelive-chinaairlines-auth-${cookieIndex}`);
+    const redisJson = await JSON.parse(redisValue);
+    return redisJson.token;
 }
 const ecoBasic = new BookingClass('VNSHECB', 'ECO Basic', 'ECO');
 const ecoStandard = new BookingClass('VNSHECS', 'ECO Standard', 'ECO');
