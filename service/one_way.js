@@ -10,16 +10,16 @@ const SOLD_OUT = { "error": true, "msg": "FNF" }
 const ERROR = { "error": true, "msg": "<ERROR_MESSAGE>" }
 const redisClient = require('../config/redisClient');
 async function one_way_process(req) {
-    const cookieIndex =  Math.floor(Math.random() * 5) + 1;
-    const searchForm = await create_search_form(req,cookieIndex);
+    const cookieIndex = Math.floor(Math.random() * 5) + 1;
+    const searchForm = await create_search_form(req, cookieIndex);
     if (searchForm.length == 0) {
         return SOLD_OUT;
     } else {
-        return await get_flight_info(req, searchForm,cookieIndex);
+        return await get_flight_info(req, searchForm, cookieIndex);
     }
 
 }
-async function create_search_form(req,cookieIndex) {
+async function create_search_form(req, cookieIndex) {
     /**
    {"origin": "LGK",
     "dest": "KUL",
@@ -68,7 +68,7 @@ async function create_search_form(req,cookieIndex) {
     }
     return inputData;
 }
-async function get_flight_info(req, searchForms,cookieIndex) {
+async function get_flight_info(req, searchForms, cookieIndex) {
     // let data = qs.stringify({
     //   'EMBEDDED_TRANSACTION': '',
     //   'ENC': '',
@@ -103,35 +103,27 @@ async function get_flight_info(req, searchForms,cookieIndex) {
         data: data
     };
     if (cookie !== undefined && cookie !== null) {
-        console.log(`has cookie ${cookieIndex}`)
+        console.log(`Has cookie ${cookieIndex}`)
+    } else {
+        console.log('Has no cookie')
+        return SOLD_OUT
     }
     const searchResponse = await fetchData(config);
-    if (searchResponse.headers === undefined || searchResponse.headers === null) {
-        console.log('No header')
-        return SOLD_OUT;
+    if (searchResponse.data === null || searchResponse.data === undefined) {
+        console.log('No response')
+        return SOLD_OUT
     }
-    const setCookieHeader = searchResponse.headers.get('set-cookie');
-    let cookieString = '';
-    setCookieHeader.forEach((cookieHeader) => {
-        if (cookieString === '') {
-            cookieString = cookieHeader;
-        } else {
-            cookieString += ';' + cookieHeader;
-        }
-    })
-    let sessionId = await getCookieVariable(cookieString, 'JSESSIONID')
-    // return sessionId === null ? '' : sessionId.slice(0,sessionId.lastIndexOf('.'));
     const pattern = /{"siteConfiguration"\s*:\s*{[^]*}}}/g;
     const cleanedData = searchResponse.data.replace(/\r?\n|\r/g, '');
     const matches = cleanedData.match(pattern);
     const jsonObject = JSON.parse(matches);
     if (jsonObject === null) {
-        console.log('jsonObject null')
+        console.log(`Cookie ${cookieIndex} expried`);
         return SOLD_OUT;
     }
     const availability = jsonObject.pageDefinitionConfig.pageData.business.Availability;
-    if (sessionId === null || jsonObject === null || availability === undefined) {
-        console.log('Cookie expried')
+    if (availability === undefined) {
+        console.log(`Cookie ${cookieIndex} expried`)
         return SOLD_OUT;
     }
     const res = new Array();

@@ -106,31 +106,25 @@ async function get_flight_info(req, searchForms,cookieIndex) {
         data: data
     };
     if (cookie !== undefined && cookie !== null) {
-        console.log(`has cookie ${cookieIndex}`)
+        console.log(`Has cookie ${cookieIndex}`)
+    }else {
+        console.log('Has no cookie')
     }
     const searchResponse = await fetchData(config);
-    const setCookieHeader = searchResponse.headers.get('set-cookie');
-    let cookieString = '';
-    setCookieHeader.forEach((cookieHeader) => {
-        if (cookieString === '') {
-            cookieString = cookieHeader;
-        } else {
-            cookieString += ';' + cookieHeader;
-        }
-    })
-    let sessionId = await getCookieVariable(cookieString, 'JSESSIONID')
-    // return sessionId === null ? '' : sessionId.slice(0,sessionId.lastIndexOf('.'));
-    const pattern = /{"siteConfiguration"\s*:\s*{[^]*}}}/g;
+    if (searchResponse.data === null || searchResponse.data === undefined) {
+        console.log('No response')
+        return SOLD_OUT
+    }    const pattern = /{"siteConfiguration"\s*:\s*{[^]*}}}/g;
     const cleanedData = searchResponse.data.replace(/\r?\n|\r/g, '');
     const matches = cleanedData.match(pattern);
     const jsonObject = JSON.parse(matches);
     if (jsonObject === null) {
-        console.log('jsonObject null')
+        console.log(`Cookie ${cookieIndex} expried`);
         return SOLD_OUT;
     }
     const availability = jsonObject.pageDefinitionConfig.pageData.business.Availability;
-    if (sessionId === null || jsonObject === null || availability === undefined) {
-        console.log('Cookie expried')
+    if (availability === undefined) {
+        console.log(`Cookie ${cookieIndex} expried`)
         return SOLD_OUT;
     }
     const recommendationList = availability.recommendationList;
