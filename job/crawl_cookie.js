@@ -49,7 +49,8 @@ async function crawl_cookie() {
 		console.log("Start crawl cookie")
 		try {
 			for (let i = 1; i <= 5; i++) {
-				if(!save_cookie(i)) i--;
+				const result = await save_cookie(i);
+				if(!result) i--;
 			}
 		} catch (error) {
 			console.error('An error occurred:', error.message);
