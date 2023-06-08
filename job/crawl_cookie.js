@@ -12,7 +12,7 @@ async function init_cookie() {
 	console.log("Start init cookie")
 	try {
 		for (let i = 1; i <= 5; i++) {
-			save_cookie(i);
+			save_cookie(i)
 		}
 	} catch (error) {
 		console.error('An error occurred:', error.message);
@@ -31,7 +31,7 @@ async function save_cookie(i) {
 				  });
 				await redisClient.set(redisKey, redisValue);
 				console.log(`${currentTime} redisCookie ${i} is saved`);
-
+				  return true;
 			} else {
 				console.log("Crawl cookie failed: Dont have required cookie")
 			}
@@ -41,7 +41,7 @@ async function save_cookie(i) {
 	} catch (error) {
 		console.error('An error occurred:', error.message);
 	}
-
+	return false;
 }
 async function crawl_cookie() {
 	// Schedule a cron job to run every minute
@@ -49,7 +49,7 @@ async function crawl_cookie() {
 		console.log("Start crawl cookie")
 		try {
 			for (let i = 1; i <= 5; i++) {
-				await save_cookie(i);
+				if(!save_cookie(i)) i--;
 			}
 		} catch (error) {
 			console.error('An error occurred:', error.message);

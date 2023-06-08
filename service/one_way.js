@@ -194,6 +194,7 @@ async function get_flight_info(req, searchForms, cookieIndex) {
                         flightObject.aircraftIcao = match[0].slice(1);
                     }
                 }
+                flightObject.operatingAirline = segment.opAirline.name
                 flightObject.priceAdult = (dptTravellerPrices.ADT === undefined) ? 0 : dptTravellerPrices.ADT;
                 flightObject.priceChild = (dptTravellerPrices.CHD === undefined) ? 0 : dptTravellerPrices.CHD;
                 flightObject.priceInfant = (dptTravellerPrices.INF === undefined) ? 0 : dptTravellerPrices.INF;
@@ -209,6 +210,7 @@ async function get_flight_info(req, searchForms, cookieIndex) {
                 flightObject.arrivalDateTime = dptArrivalDateTime
                 flightObject.transitDepartDateTime = dptTransitDepartDateTime
                 flightObject.transitArrivalDateTime = dptTransitArrivalDateTime
+                flightObject.transitOperatingAirline = segment.opAirline.name
             }
         });
         if (!dptMap.has('' + flightObject._flightCode + flightObject._transitFlightCode)) {
