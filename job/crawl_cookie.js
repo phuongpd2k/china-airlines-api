@@ -61,6 +61,12 @@ async function crawl_from_puppeteer() {
 	const browser = await puppeteer.launch({
 		headless: true,
 		defaultViewport: null,
+		args: [
+			'--no-sandbox',
+			'--headless',
+			'--disable-gpu',
+			'--disable-dev-shm-usage'
+		  ]
 	});
 	try {
 		const page = await browser.newPage();
