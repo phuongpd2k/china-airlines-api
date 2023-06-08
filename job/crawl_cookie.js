@@ -6,85 +6,133 @@ puppeteer.use(StealthPlugin())
 const Jimp = require('jimp');
 const pixelmatch = require('pixelmatch');
 const { cv } = require('opencv-wasm');
-
-const { set_cookie } = require('../service/set_cookie');
-
-async function init_cookie(){
-    console.log("Start init cookie")
-    const cookie = await crawl_from_puppeteer();
-        await set_cookie(cookie);
+const moment = require('moment');
+const redisClient = require('../config/redisClient');
+async function init_cookie() {
+	console.log("Start init cookie")
+	try {
+		for (let i = 1; i <= 5; i++) {
+			save_cookie(i);
+		}
+	} catch (error) {
+		console.error('An error occurred:', error.message);
+	}
 }
+async function save_cookie(i) {
+	try {
+		const cookie = await crawl_from_puppeteer();
+		if (cookie !== null && cookie !== undefined) {
+			if (cookie.includes('incap')) {
+				const currentTime = moment().format('YYYY-MM-DD HH:mm:ss');
+				const redisKey = `farelive-chinaairlines-auth-${i}`;
+				const redisValue = JSON.stringify({
+					token: cookie,
+					ts: currentTime
+				  });
+				await redisClient.set(redisKey, redisValue);
+				console.log(`${currentTime} redisCookie ${i} is saved`);
 
+			} else {
+				console.log("Crawl cookie failed: Dont have required cookie")
+			}
+		} else {
+			console.log("Crawl cookie failed: Cookie is null")
+		}
+	} catch (error) {
+		console.error('An error occurred:', error.message);
+	}
+
+}
 async function crawl_cookie() {
-
-    // Schedule a cron job to run every minute
-    schedule('*/2 * * * *', async () => {
+	// Schedule a cron job to run every minute
+	schedule('*/4 * * * *', async () => {
 		console.log("Start crawl cookie")
-        const cookie = await crawl_from_puppeteer();
-        await set_cookie(cookie);
-    });
+		try {
+			for (let i = 1; i <= 5; i++) {
+				await save_cookie(i);
+			}
+		} catch (error) {
+			console.error('An error occurred:', error.message);
+		}
+	});
 }
 async function crawl_from_puppeteer() {
-    const browser = await puppeteer.launch({
-        headless: true,
-        defaultViewport: null,
-      });
-          const page = await browser.newPage();
-        await page.setExtraHTTPHeaders({
-            'Accept-Language': 'en-GB,en-US;q=0.9,en;q=0.8'
-        });
-        await page.setUserAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 16_1_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148');
-        await page.goto('https://www.china-airlines.com/us/en');
-        
-        await page.waitForSelector('.btn-cookie');
-        const btnAcceptCookie = await page.$('.btn-cookie');
-        await btnAcceptCookie.click();
-        await page.waitForSelector('#One-way');
-        const radioOneWay = await page.$('#One-way');
-        await radioOneWay.click();
-    
-        await page.waitForSelector('#From-booking');
-        const inputFrom = await page.$('#From-booking');
-        await inputFrom.click();
-        await page.waitForTimeout(750);
-        await page.type("#From-booking","HAN")
-        await page.waitForXPath('//*[@id="From-booking-suggestions"]/li[1]');
-        const [btnFromSelection] = await page.$x('//*[@id="From-booking-suggestions"]/li[1]');
-        await btnFromSelection.click();
-        await page.waitForSelector('#To-booking');
-        const inputTo = await page.$('#To-booking');
-        await inputTo.click();
-        await page.waitForTimeout(750);
-        await page.type("#To-booking","SIN");
-        await page.waitForXPath('//*[@id="To-booking-suggestions"]/li[1]');
-        const [btnToSelection] = await page.$x('//*[@id="To-booking-suggestions"]/li[1]');
-        await btnToSelection.click();
-    
-        await page.waitForXPath('//*[@id="FlightSearchResultPost"]/div[3]/div[2]/div/div[2]/div[2]/div/div[2]/a');
-        const [btnSearch] = await page.$x('//*[@id="FlightSearchResultPost"]/div[3]/div[2]/div/div[2]/div[2]/div/div[2]/a');
-        await btnSearch.click();
-        await page.waitForSelector('#btnGo');
-        const btnGo = await page.$('#btnGo');
-        await btnGo.click();
-        //verify
-        await clickVerifyButton(page);
-        await page.waitForTimeout(1500);
-        const images = await getCaptchaImages(page);
-        const diffImage = await getDiffImage(images);
-        const center = await getPuzzlePieceSlotCenterPosition(diffImage);
-        
-        await slidePuzzlePiece(page, center);
-        await page.waitForTimeout(7500);
-        let result = '';
-        const cookies = await await page.cookies();
-        cookies.forEach((cookie) => {
-          if (result === '') {
-            result = cookie['name'] + '=' + cookie['value'];
-          } else {
-            result += ';' + cookie['name'] + '=' + cookie['value'];
-          }
-        })
-        return result;
+	let result = '';
+	const browser = await puppeteer.launch({
+		headless: true,
+		defaultViewport: null,
+		args: [
+			'--no-sandbox',
+			'--headless',
+			'--disable-gpu',
+			'--disable-dev-shm-usage'
+		  ]
+	});
+	try {
+		const page = await browser.newPage();
+		await page.setExtraHTTPHeaders({
+			'Accept-Language': 'en-GB,en-US;q=0.9,en;q=0.8'
+		});
+		await page.setUserAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 16_1_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148');
+		await page.goto('https://www.china-airlines.com/us/en');
+
+		await page.waitForSelector('.btn-cookie');
+		const btnAcceptCookie = await page.$('.btn-cookie');
+		await btnAcceptCookie.click();
+		await page.waitForSelector('#One-way');
+		const radioOneWay = await page.$('#One-way');
+		await radioOneWay.click();
+
+		await page.waitForSelector('#From-booking');
+		const inputFrom = await page.$('#From-booking');
+		await inputFrom.click();
+		await page.waitForTimeout(1000);
+		await page.type("#From-booking", "HAN")
+		await page.waitForTimeout(250);
+
+		await page.waitForXPath('//*[@id="From-booking-suggestions"]/li[1]');
+		const [btnFromSelection] = await page.$x('//*[@id="From-booking-suggestions"]/li[1]');
+		await btnFromSelection.click();
+		await page.waitForSelector('#To-booking');
+		const inputTo = await page.$('#To-booking');
+		await inputTo.click();
+		await page.waitForTimeout(1000);
+		await page.type("#To-booking", "SIN");
+		await page.waitForTimeout(250);
+		await page.waitForXPath('//*[@id="To-booking-suggestions"]/li[1]');
+		const [btnToSelection] = await page.$x('//*[@id="To-booking-suggestions"]/li[1]');
+		await btnToSelection.click();
+		await page.waitForTimeout(1500);
+		await page.waitForXPath('//*[@id="FlightSearchResultPost"]/div[3]/div[2]/div/div[2]/div[2]/div/div[2]/a');
+		const [btnSearch] = await page.$x('//*[@id="FlightSearchResultPost"]/div[3]/div[2]/div/div[2]/div[2]/div/div[2]/a');
+		await btnSearch.click();
+		await page.waitForSelector('#btnGo');
+		const btnGo = await page.$('#btnGo');
+		await btnGo.click();
+		//verify
+		await page.waitForTimeout(500);
+		await clickVerifyButton(page);
+		await page.waitForTimeout(1500);
+		const images = await getCaptchaImages(page);
+		const diffImage = await getDiffImage(images);
+		const center = await getPuzzlePieceSlotCenterPosition(diffImage);
+
+		await slidePuzzlePiece(page, center);
+		await page.waitForTimeout(10000);
+		const cookies = await await page.cookies();
+		cookies.forEach((cookie) => {
+			if (result === '') {
+				result = cookie['name'] + '=' + cookie['value'];
+			} else {
+				result += ';' + cookie['name'] + '=' + cookie['value'];
+			}
+		})
+	} catch (error) {
+		console.error('An error occurred:', error.message);
+	} finally {
+		await browser.close();
+	}
+	return result;
 }
 async function clickVerifyButton(page) {
 	await page.waitForSelector('[aria-label="Click to verify"]');
@@ -92,7 +140,7 @@ async function clickVerifyButton(page) {
 	await page.waitForSelector('.geetest_canvas_img canvas', {
 		visible: true,
 	})
-	await page.waitForTimeout(1000)
+	await page.waitForTimeout(1500)
 }
 
 async function getCaptchaImages(page) {
@@ -177,7 +225,7 @@ async function getPuzzlePieceSlotCenterPosition(diffImage) {
 
 	// Just for fun, let's draw the contours and center on a new image.
 	cv.cvtColor(dst, dst, cv.COLOR_GRAY2BGR);
-	const red = new cv.Scalar(255,0,0);
+	const red = new cv.Scalar(255, 0, 0);
 	cv.drawContours(dst, contours, 0, red);
 	cv.circle(dst, new cv.Point(cx, cy), 3, red);
 	new Jimp({
@@ -199,7 +247,7 @@ async function slidePuzzlePiece(page, center) {
 	let handleX = handle.x + handle.width / 2;
 	let handleY = handle.y + handle.height / 2;
 
-	await page.mouse.move(handleX, handleY, { steps: 25} );
+	await page.mouse.move(handleX, handleY, { steps: 25 });
 	await page.mouse.down();
 
 	let destX = handleX + center.x;
@@ -250,6 +298,6 @@ async function findMyPuzzlePiecePosition(page) {
 	}
 }
 module.exports = {
-    crawl_cookie :crawl_cookie,
-    init_cookie: init_cookie
+	crawl_cookie: crawl_cookie,
+	init_cookie: init_cookie
 };

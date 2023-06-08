@@ -8,17 +8,18 @@ const BookingClass = require('../model/booking_class.js');
 const cookie = require('cookie');
 const SOLD_OUT = { "error": true, "msg": "FNF" }
 const ERROR = { "error": true, "msg": "<ERROR_MESSAGE>" }
-const { cache } = require("./set_cookie.js")
+const redisClient = require('../config/redisClient');
 async function one_way_process(req) {
-    const searchForm = await create_search_form(req);
+    const cookieIndex = Math.floor(Math.random() * 5) + 1;
+    const searchForm = await create_search_form(req, cookieIndex);
     if (searchForm.length == 0) {
         return SOLD_OUT;
     } else {
-        return await get_flight_info(req, searchForm);
+        return await get_flight_info(req, searchForm, cookieIndex);
     }
 
 }
-async function create_search_form(req) {
+async function create_search_form(req, cookieIndex) {
     /**
    {"origin": "LGK",
     "dest": "KUL",
@@ -32,7 +33,7 @@ async function create_search_form(req) {
     const body = req.body;
     const convertedDate = body.dptDate.split("-").join("") + '0000';
     let data = `B_LOCATION_1=${body.origin}&E_LOCATION_1=${body.dest}&B_DATE_1=${convertedDate}&ADULTS=${body.adult}&CHILDS=${body.child}&INFANTS=${body.infant}&LANG=GB&CABIN=Y&TRIP_TYPE=O&Channel=IOS&EBA=GB`;
-    let cookie = cache.getData('memCookie');
+    let cookie = await getCookieFromRedis(cookieIndex);
     let config = {
         method: 'post',
         maxBodyLength: Infinity,
@@ -52,18 +53,22 @@ async function create_search_form(req) {
         data: data
     };
     const searchResponse = await fetchData(config);
-    const $ = cheerio.load(searchResponse.data);
-    const inputElements = $('input');
     const inputData = [];
-    inputElements.each((index, element) => {
-        const name = $(element).attr('name');
-        const value = $(element).val();
-        inputData.push({ name, value });
-        inputData.push({ name, value });
-    });
+    try {
+        const $ = cheerio.load(searchResponse.data);
+        const inputElements = $('input');
+        inputElements.each((index, element) => {
+            const name = $(element).attr('name');
+            const value = $(element).val();
+            inputData.push({ name, value });
+            inputData.push({ name, value });
+        });
+    } catch (error) {
+        console.error('An error occurred:', error.message);
+    }
     return inputData;
 }
-async function get_flight_info(req, searchForms) {
+async function get_flight_info(req, searchForms, cookieIndex) {
     // let data = qs.stringify({
     //   'EMBEDDED_TRANSACTION': '',
     //   'ENC': '',
@@ -71,12 +76,13 @@ async function get_flight_info(req, searchForms) {
     //   'SITE': '',
     //   'LANGUAGE': '' 
     // });
+    const dptMap = new Map();
     const searchData = {};
     searchForms.forEach(element => {
         searchData[element.name] = element.value;
     });
     const data = qs.stringify(searchData)
-    let cookie = cache.getData('memCookie')
+    let cookie = await getCookieFromRedis(cookieIndex);
     let config = {
         method: 'post',
         maxBodyLength: Infinity,
@@ -97,119 +103,117 @@ async function get_flight_info(req, searchForms) {
         data: data
     };
     if (cookie !== undefined && cookie !== null) {
-        console.log("has cookie")
+        console.log(`Has cookie ${cookieIndex}`)
+    } else {
+        console.log('Has no cookie')
+        return SOLD_OUT
     }
     const searchResponse = await fetchData(config);
-    const setCookieHeader = searchResponse.headers.get('set-cookie');
-    let cookieString = '';
-    setCookieHeader.forEach((cookieHeader) => {
-        if (cookieString === '') {
-            cookieString = cookieHeader;
-        } else {
-            cookieString += ';' + cookieHeader;
-        }
-    })
-    let sessionId = await getCookieVariable(cookieString, 'JSESSIONID')
-    // return sessionId === null ? '' : sessionId.slice(0,sessionId.lastIndexOf('.'));
+    if (searchResponse.data === null || searchResponse.data === undefined) {
+        console.log('No response')
+        return SOLD_OUT
+    }
     const pattern = /{"siteConfiguration"\s*:\s*{[^]*}}}/g;
     const cleanedData = searchResponse.data.replace(/\r?\n|\r/g, '');
     const matches = cleanedData.match(pattern);
     const jsonObject = JSON.parse(matches);
     if (jsonObject === null) {
-        console.log('jsonObject null')
+        console.log(`Cookie ${cookieIndex} expried`);
         return SOLD_OUT;
     }
     const availability = jsonObject.pageDefinitionConfig.pageData.business.Availability;
-    if (sessionId === null || jsonObject === null || availability === undefined) {
-        console.log('Cookie expried')
+    if (availability === undefined) {
+        console.log(`Cookie ${cookieIndex} expried`)
         return SOLD_OUT;
     }
     const res = new Array();
     const recommendationList = availability.recommendationList;
-    const currentFlightMap = new Map();
-    for (index in recommendationList) {
-        const recomend = recommendationList[index]
-        const bounds = recomend.bounds[0];
-        const travellerPrices = {
-            ADT: bounds.travellerPrices.ADT,
-            CHD: bounds.travellerPrices.CHD,
-            INF: bounds.travellerPrices.INF
-
+    const proposedBounds = availability.proposedBounds;
+    const dptFlights = proposedBounds[0].proposedFlightsGroup;
+    for (flightIndex in dptFlights) {
+        const flightObject = new Flight();
+        const recomendList = recommendationList.filter(recommendation => recommendation.bounds[0].flightGroupList.find(flight => flight.flightId === dptFlights[flightIndex].proposedBoundId))
+        const recomend = recomendList.reduce((smallestObj, currentObj) => {
+            if (!smallestObj || currentObj.bounds[0].travellerPrices.ADT < smallestObj.bounds[0].travellerPrices.ADT) {
+                return currentObj;
+            }
+            return smallestObj;
+        }, null);
+        const dptSegments = dptFlights[flightIndex].segments;
+        if (dptSegments.length > 2) continue;
+        const flight = recomend.bounds[0].flightGroupList.find(flight => flight.flightId === dptFlights[flightIndex].proposedBoundId);
+        if (flight === undefined || flight === null) continue;
+        const bookingClass = CLASS_MAP.get(flight.rbd)
+        // console.log(bookingClass)
+        const dptTravellerPrices = {
+            ADT: recomend.bounds[0].travellerPrices.ADT,
+            CHD: recomend.bounds[0].travellerPrices.CHD,
+            INF: recomend.bounds[0].travellerPrices.INF
         }
-        for (flightIndex in bounds.flightGroupList) {
-            const flightObject = new Flight();
-            const flight = bounds.flightGroupList[flightIndex];
-
-            const bookingClass = CLASS_MAP.get(flight.rbd)
-
-            const segments = availability.proposedBounds[0].proposedFlightsGroup[flight.flightId].segments
-            // console.log(segments)
-            let departDateTime = null;
-            let arrivalDateTime = null;
-            let transitDepartDateTime = null;
-            let transitArrivalDateTime = null;
-            let departTerminal = null;
-            let arrivalTerminal = null;
-            let transitDepartTerminal = null;
-            let transitArrivalTerminal = null;
-            if (segments.length > 2) continue;
-            if (segments.length == 2) {
-                departDateTime = moment(segments[0].beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-                arrivalDateTime = moment(segments[1].endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-                transitDepartDateTime = moment(segments[1].beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-                transitArrivalDateTime = moment(segments[0].endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-                departTerminal = segments[0].beginTerminal;
-                arrivalTerminal = segments[1].endTerminal;
-                transitDepartTerminal = segments[1].beginTerminal;
-                transitArrivalTerminal = segments[0].endTerminal;
+        let dptDepartDateTime = null;
+        let dptArrivalDateTime = null;
+        let dptTransitDepartDateTime = null;
+        let dptTransitArrivalDateTime = null;
+        let dptDepartTerminal = null;
+        let dptArrivalTerminal = null;
+        let dptTransitDepartTerminal = null;
+        let dptTransitArrivalTerminal = null;
+        if (dptSegments.length <= 2) {
+            // if (!dptFlightMap.has('' + flightObject._flightCode + flightObject._transitFlightCode)) {
+            if (dptSegments.length == 2) {
+                dptDepartDateTime = moment(dptSegments[0].beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+                dptArrivalDateTime = moment(dptSegments[1].endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+                dptTransitDepartDateTime = moment(dptSegments[1].beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+                dptTransitArrivalDateTime = moment(dptSegments[0].endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+                dptDepartTerminal = dptSegments[0].beginTerminal;
+                dptArrivalTerminal = dptSegments[1].endTerminal;
+                dptTransitDepartTerminal = dptSegments[1].beginTerminal;
+                dptTransitArrivalTerminal = dptSegments[0].endTerminal;
             }
-            segments.forEach((segment) => {
-
-                if (segment.endLocation.locationCode != req.body.dest) {
-                    flightObject.flightCode = segment.airline.code + segment.flightNumber;
-                    flightObject.type = 'direct'
-                    flightObject.departTerminal = segment.beginTerminal;
-                    flightObject.departDateTime = moment(segment.beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-                    flightObject.arrivalTerminal = segment.endTerminal;
-                    flightObject.arrivalDateTime = moment(segment.endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-                    flightObject.cabinClass = bookingClass._cabinClass;
-                    flightObject.bookingClass = flight.rbd;
-                    flightObject.class = flight.rbd;
-                    flightObject.currency = availability.currencyBean.code;
-                    flightObject.aircraftName = segment.equipment.name;
-                    flightObject.aircraftIata = segment.equipment.code;
-                    let match = segment.equipment.name.match(/ [^]*-/g)
-                    if (match !== null) {
-                        flightObject.aircraftIcao = match[0].slice(1, -1);
-                    }else{
-                        match = segment.equipment.name.match(/ [^]*/g);
-                        if (match !== null) {
-                            flightObject.aircraftIcao = match[0].slice(1);
-                        }
-                    }
-                    flightObject.priceAdult = (travellerPrices.ADT === undefined) ? 0 : travellerPrices.ADT;
-                    flightObject.priceChild = (travellerPrices.CHD === undefined) ? 0 : travellerPrices.CHD;
-                    flightObject.priceInfant = (travellerPrices.INF === undefined) ? 0 : travellerPrices.INF;
+        }
+        dptSegments.forEach(segment => {
+            if (segment.endLocation.locationCode !== req.body.dest) {
+                flightObject.flightCode = segment.airline.code + segment.flightNumber;
+                flightObject.type = 'direct'
+                flightObject.departTerminal = segment.beginTerminal;
+                flightObject.departDateTime = moment(segment.beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+                flightObject.arrivalTerminal = segment.endTerminal;
+                flightObject.arrivalDateTime = moment(segment.endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+                flightObject.cabinClass = bookingClass._cabinClass;
+                flightObject.bookingClass = flight.rbd;
+                flightObject.class = flight.rbd;
+                flightObject.currency = availability.currencyBean.code;
+                flightObject.aircraftName = segment.equipment.name;
+                flightObject.aircraftIata = segment.equipment.code;
+                let match = segment.equipment.name.match(/ [^]*-/g)
+                if (match !== null) {
+                    flightObject.aircraftIcao = match[0].slice(1, -1);
                 } else {
-                    flightObject.type = 'transit'
-                    flightObject.transitFlightCode = segment.airline.code + segment.flightNumber;
-                    flightObject.transitDepartTerminal = transitDepartTerminal
-                    flightObject.transitArrivalTerminal = transitArrivalTerminal
-                    flightObject.departTerminal = departTerminal;
-                    flightObject.arrivalTerminal = arrivalTerminal;
-                    flightObject.transitAirport = segment.beginLocation.locationCode
-                    flightObject.departDateTime = departDateTime;
-                    flightObject.arrivalDateTime = arrivalDateTime
-                    flightObject.transitDepartDateTime = transitDepartDateTime
-                    flightObject.transitArrivalDateTime = transitArrivalDateTime
+                    match = segment.equipment.name.match(/ [^]*/g);
+                    if (match !== null) {
+                        flightObject.aircraftIcao = match[0].slice(1);
+                    }
                 }
-            })
-            if (currentFlightMap.has('' + flightObject._flightCode + flightObject._transitFlightCode)) {
-                continue;
+                flightObject.priceAdult = (dptTravellerPrices.ADT === undefined) ? 0 : dptTravellerPrices.ADT;
+                flightObject.priceChild = (dptTravellerPrices.CHD === undefined) ? 0 : dptTravellerPrices.CHD;
+                flightObject.priceInfant = (dptTravellerPrices.INF === undefined) ? 0 : dptTravellerPrices.INF;
             } else {
-                currentFlightMap.set('' + flightObject._flightCode + flightObject._transitFlightCode, res.length);
+                flightObject.type = 'transit'
+                flightObject.transitFlightCode = segment.airline.code + segment.flightNumber;
+                flightObject.transitDepartTerminal = dptTransitDepartTerminal
+                flightObject.transitArrivalTerminal = dptTransitArrivalTerminal
+                flightObject.departTerminal = dptDepartTerminal;
+                flightObject.arrivalTerminal = dptArrivalTerminal;
+                flightObject.transitAirport = segment.beginLocation.locationCode;
+                flightObject.departDateTime = dptDepartDateTime;
+                flightObject.arrivalDateTime = dptArrivalDateTime
+                flightObject.transitDepartDateTime = dptTransitDepartDateTime
+                flightObject.transitArrivalDateTime = dptTransitArrivalDateTime
             }
-            res.push(flightObject.toJson());
+        });
+        if (!dptMap.has('' + flightObject._flightCode + flightObject._transitFlightCode)) {
+            res.push(flightObject.toJson())
+            dptMap.set('' + flightObject._flightCode + flightObject._transitFlightCode)
         }
     }
     return res;
@@ -232,6 +236,11 @@ async function getCookieVariable(cookieString, variableName) {
     } else {
         return null;
     }
+}
+async function getCookieFromRedis(cookieIndex) {
+    const redisValue = await redisClient.get(`farelive-chinaairlines-auth-${cookieIndex}`);
+    const redisJson = await JSON.parse(redisValue);
+    return redisJson.token;
 }
 const ecoBasic = new BookingClass('VNSHECB', 'ECO Basic', 'ECO');
 const ecoStandard = new BookingClass('VNSHECS', 'ECO Standard', 'ECO');
