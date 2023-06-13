@@ -159,71 +159,100 @@ async function get_flight_info(req, searchForms,cookieIndex) {
             let dptArrivalTerminal = null;
             let dptTransitDepartTerminal = null;
             let dptTransitArrivalTerminal = null;
-        if (dptSegments.length <= 2) {
-            // if (!dptFlightMap.has('' + flightObject._flightCode + flightObject._transitFlightCode)) {
-            if (dptSegments.length == 2) {
-                dptDepartDateTime = moment(dptSegments[0].beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-                dptArrivalDateTime = moment(dptSegments[1].endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-                dptTransitDepartDateTime = moment(dptSegments[1].beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-                dptTransitArrivalDateTime = moment(dptSegments[0].endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-                dptDepartTerminal = dptSegments[0].beginTerminal;
-                dptArrivalTerminal = dptSegments[1].endTerminal;
-                dptTransitDepartTerminal = dptSegments[1].beginTerminal;
-                dptTransitArrivalTerminal = dptSegments[0].endTerminal;
-            }
-            // if (req.body.dptFlightCode !== null && req.body.dptFlightCode !== undefined) {
-            //     if (req.body.dptFlightCode !== (dptSegments[0].airline.code + dptSegments[0].flightNumber)) {
-            //         continue;
-            //     }
-            // }
-            // if (req.body.dptTrsFlightCode !== null && req.body.dptTrsFlightCode !== undefined) {
-            //     if (req.body.dptTrsFlightCode !== (dptSegments[1].airline.code + dptSegments[1].flightNumber)) {
-            //         continue;
-            //     }
-            // }
+        if (dptSegments.length == 2) {
+            dptDepartDateTime = moment(dptSegments[0].beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+            dptArrivalDateTime = moment(dptSegments[1].endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+            dptTransitDepartDateTime = moment(dptSegments[1].beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+            dptTransitArrivalDateTime = moment(dptSegments[0].endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+            dptDepartTerminal = dptSegments[0].beginTerminal;
+            dptArrivalTerminal = dptSegments[1].endTerminal;
+            dptTransitDepartTerminal = dptSegments[1].beginTerminal;
+            dptTransitArrivalTerminal = dptSegments[0].endTerminal;
         }
-        dptSegments.forEach(segment => {
-            if (segment.endLocation.locationCode !== req.body.dest) {
-                flightObject.flightCode = segment.airline.code + segment.flightNumber;
-                flightObject.type = 'direct'
-                flightObject.departTerminal = segment.beginTerminal;
-                flightObject.departDateTime = moment(segment.beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-                flightObject.arrivalTerminal = segment.endTerminal;
-                flightObject.arrivalDateTime = moment(segment.endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-                flightObject.cabinClass = bookingClass._cabinClass;
-                flightObject.bookingClass = flight.rbd;
-                flightObject.class = flight.rbd;
-                flightObject.currency = availability.currencyBean.code;
-                flightObject.aircraftName = segment.equipment.name;
-                flightObject.aircraftIata = segment.equipment.code;
-                let match = segment.equipment.name.match(/ [^]*-/g)
-                if (match !== null) {
-                    flightObject.aircraftIcao = match[0].slice(1, -1);
-                } else {
-                    match = segment.equipment.name.match(/ [^]*/g);
-                    if (match !== null) {
-                        flightObject.aircraftIcao = match[0].slice(1);
-                    }
-                }
-                flightObject.operatingAirline = segment.opAirline.name
-                flightObject.priceAdult = (dptTravellerPrices.ADT === undefined) ? 0 : dptTravellerPrices.ADT;
-                flightObject.priceChild = (dptTravellerPrices.CHD === undefined) ? 0 : dptTravellerPrices.CHD;
-                flightObject.priceInfant = (dptTravellerPrices.INF === undefined) ? 0 : dptTravellerPrices.INF;
+        // if (!dptFlightMap.has('' + flightObject._flightCode + flightObject._transitFlightCode)) {
+
+        // if (req.body.dptFlightCode !== null && req.body.dptFlightCode !== undefined) {
+        //     if (req.body.dptFlightCode !== (dptSegments[0].airline.code + dptSegments[0].flightNumber)) {
+        //         continue;
+        //     }
+        // }
+        // if (req.body.dptTrsFlightCode !== null && req.body.dptTrsFlightCode !== undefined) {
+        //     if (req.body.dptTrsFlightCode !== (dptSegments[1].airline.code + dptSegments[1].flightNumber)) {
+        //         continue;
+        //     }
+        // }
+        if (dptSegments.length < 2) {
+            const segment = dptSegments[0];
+            flightObject.flightCode = segment.airline.code + segment.flightNumber;
+            flightObject.type = 'direct'
+            flightObject.departTerminal = segment.beginTerminal;
+            flightObject.departDateTime = moment(segment.beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+            flightObject.arrivalTerminal = segment.endTerminal;
+            flightObject.arrivalDateTime = moment(segment.endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+            flightObject.cabinClass = bookingClass._cabinClass;
+            flightObject.bookingClass = flight.rbd;
+            flightObject.class = flight.rbd;
+            flightObject.currency = availability.currencyBean.code;
+            flightObject.aircraftName = segment.equipment.name;
+            flightObject.aircraftIata = segment.equipment.code;
+            let match = segment.equipment.name.match(/ [^]*-/g)
+            if (match !== null) {
+                flightObject.aircraftIcao = match[0].slice(1, -1);
             } else {
-                flightObject.type = 'transit'
-                flightObject.transitFlightCode = segment.airline.code + segment.flightNumber;
-                flightObject.transitDepartTerminal = dptTransitDepartTerminal
-                flightObject.transitArrivalTerminal = dptTransitArrivalTerminal
-                flightObject.departTerminal = dptDepartTerminal;
-                flightObject.arrivalTerminal = dptArrivalTerminal;
-                flightObject.transitAirport = segment.beginLocation.locationCode;
-                flightObject.departDateTime = dptDepartDateTime;
-                flightObject.arrivalDateTime = dptArrivalDateTime
-                flightObject.transitDepartDateTime = dptTransitDepartDateTime
-                flightObject.transitArrivalDateTime = dptTransitArrivalDateTime
-                flightObject.transitOperatingAirline = segment.opAirline.name
+                match = segment.equipment.name.match(/ [^]*/g);
+                if (match !== null) {
+                    flightObject.aircraftIcao = match[0].slice(1);
+                }
             }
-        });
+            flightObject.operatingAirline = segment.opAirline.name
+            flightObject.priceAdult = (dptTravellerPrices.ADT === undefined) ? 0 : dptTravellerPrices.ADT;
+            flightObject.priceChild = (dptTravellerPrices.CHD === undefined) ? 0 : dptTravellerPrices.CHD;
+            flightObject.priceInfant = (dptTravellerPrices.INF === undefined) ? 0 : dptTravellerPrices.INF;
+        }else{
+            dptSegments.forEach(segment => {
+                if (segment.endLocation.locationCode !== req.body.dest) {
+                    flightObject.flightCode = segment.airline.code + segment.flightNumber;
+                    flightObject.type = 'direct'
+                    flightObject.departTerminal = segment.beginTerminal;
+                    flightObject.departDateTime = moment(segment.beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+                    flightObject.arrivalTerminal = segment.endTerminal;
+                    flightObject.arrivalDateTime = moment(segment.endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+                    flightObject.cabinClass = bookingClass._cabinClass;
+                    flightObject.bookingClass = flight.rbd;
+                    flightObject.class = flight.rbd;
+                    flightObject.currency = availability.currencyBean.code;
+                    flightObject.aircraftName = segment.equipment.name;
+                    flightObject.aircraftIata = segment.equipment.code;
+                    let match = segment.equipment.name.match(/ [^]*-/g)
+                    if (match !== null) {
+                        flightObject.aircraftIcao = match[0].slice(1, -1);
+                    } else {
+                        match = segment.equipment.name.match(/ [^]*/g);
+                        if (match !== null) {
+                            flightObject.aircraftIcao = match[0].slice(1);
+                        }
+                    }
+                    flightObject.operatingAirline = segment.opAirline.name
+                    flightObject.priceAdult = (dptTravellerPrices.ADT === undefined) ? 0 : dptTravellerPrices.ADT;
+                    flightObject.priceChild = (dptTravellerPrices.CHD === undefined) ? 0 : dptTravellerPrices.CHD;
+                    flightObject.priceInfant = (dptTravellerPrices.INF === undefined) ? 0 : dptTravellerPrices.INF;
+                } else {
+                    flightObject.type = 'transit'
+                    flightObject.transitFlightCode = segment.airline.code + segment.flightNumber;
+                    flightObject.transitDepartTerminal = dptTransitDepartTerminal
+                    flightObject.transitArrivalTerminal = dptTransitArrivalTerminal
+                    flightObject.departTerminal = dptDepartTerminal;
+                    flightObject.arrivalTerminal = dptArrivalTerminal;
+                    flightObject.transitAirport = segment.beginLocation.locationCode;
+                    flightObject.departDateTime = dptDepartDateTime;
+                    flightObject.arrivalDateTime = dptArrivalDateTime
+                    flightObject.transitDepartDateTime = dptTransitDepartDateTime
+                    flightObject.transitArrivalDateTime = dptTransitArrivalDateTime
+                    flightObject.transitOperatingAirline = segment.opAirline.name
+                }
+            });
+        }
+
         if (!dptMap.has('' + flightObject._flightCode + flightObject._transitFlightCode)) {
             dpt.push(flightObject.toJson())
             dptMap.set('' + flightObject._flightCode + flightObject._transitFlightCode)
@@ -260,61 +289,87 @@ async function get_flight_info(req, searchForms,cookieIndex) {
             let rtnArrivalTerminal = null;
             let rtnTransitDepartTerminal = null;
             let rtnTransitArrivalTerminal = null;
-        if (rtnSegments.length <= 2) {
-            // if (!rtnFlightMap.has('' + flightObject._flightCode + flightObject._transitFlightCode)) {
-            if (rtnSegments.length == 2) {
-                rtnDepartDateTime = moment(rtnSegments[0].beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-                rtnArrivalDateTime = moment(rtnSegments[1].endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-                rtnTransitDepartDateTime = moment(rtnSegments[1].beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-                rtnTransitArrivalDateTime = moment(rtnSegments[0].endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-                rtnDepartTerminal = rtnSegments[0].beginTerminal;
-                rtnArrivalTerminal = rtnSegments[1].endTerminal;
-                rtnTransitDepartTerminal = rtnSegments[1].beginTerminal;
-                rtnTransitArrivalTerminal = rtnSegments[0].endTerminal;
-            }
+        if (rtnSegments.length == 2) {
+            rtnDepartDateTime = moment(rtnSegments[0].beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+            rtnArrivalDateTime = moment(rtnSegments[1].endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+            rtnTransitDepartDateTime = moment(rtnSegments[1].beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+            rtnTransitArrivalDateTime = moment(rtnSegments[0].endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+            rtnDepartTerminal = rtnSegments[0].beginTerminal;
+            rtnArrivalTerminal = rtnSegments[1].endTerminal;
+            rtnTransitDepartTerminal = rtnSegments[1].beginTerminal;
+            rtnTransitArrivalTerminal = rtnSegments[0].endTerminal;
         }
-        rtnSegments.forEach(segment => {
-            if (segment.endLocation.locationCode !== req.body.origin) {
-                flightObject.flightCode = segment.airline.code + segment.flightNumber;
-                flightObject.type = 'direct'
-                flightObject.departTerminal = segment.beginTerminal;
-                flightObject.departDateTime = moment(segment.beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-                flightObject.arrivalTerminal = segment.endTerminal;
-                flightObject.arrivalDateTime = moment(segment.endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-                flightObject.cabinClass = bookingClass._cabinClass;
-                flightObject.bookingClass = flight.rbd;
-                flightObject.class = flight.rbd;
-                flightObject.currency = availability.currencyBean.code;
-                flightObject.aircraftName = segment.equipment.name;
-                flightObject.aircraftIata = segment.equipment.code;
-                let match = segment.equipment.name.match(/ [^]*-/g)
-                if (match !== null) {
-                    flightObject.aircraftIcao = match[0].slice(1, -1);
-                } else {
-                    match = segment.equipment.name.match(/ [^]*/g);
-                    if (match !== null) {
-                        flightObject.aircraftIcao = match[0].slice(1);
-                    }
-                }
-                flightObject.operatingAirline = segment.opAirline.name
-                flightObject.priceAdult = (rtnTravellerPrices.ADT === undefined) ? 0 : rtnTravellerPrices.ADT;
-                flightObject.priceChild = (rtnTravellerPrices.CHD === undefined) ? 0 : rtnTravellerPrices.CHD;
-                flightObject.priceInfant = (rtnTravellerPrices.INF === undefined) ? 0 : rtnTravellerPrices.INF;
+        if (rtnSegments.length < 2) {
+            segment = rtnSegments[0];
+            flightObject.flightCode = segment.airline.code + segment.flightNumber;
+            flightObject.type = 'direct'
+            flightObject.departTerminal = segment.beginTerminal;
+            flightObject.departDateTime = moment(segment.beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+            flightObject.arrivalTerminal = segment.endTerminal;
+            flightObject.arrivalDateTime = moment(segment.endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+            flightObject.cabinClass = bookingClass._cabinClass;
+            flightObject.bookingClass = flight.rbd;
+            flightObject.class = flight.rbd;
+            flightObject.currency = availability.currencyBean.code;
+            flightObject.aircraftName = segment.equipment.name;
+            flightObject.aircraftIata = segment.equipment.code;
+            let match = segment.equipment.name.match(/ [^]*-/g)
+            if (match !== null) {
+                flightObject.aircraftIcao = match[0].slice(1, -1);
             } else {
-                flightObject.type = 'transit'
-                flightObject.transitFlightCode = segment.airline.code + segment.flightNumber;
-                flightObject.transitDepartTerminal = rtnTransitDepartTerminal
-                flightObject.transitArrivalTerminal = rtnTransitArrivalTerminal
-                flightObject.departTerminal = rtnDepartTerminal;
-                flightObject.arrivalTerminal = rtnArrivalTerminal;
-                flightObject.transitAirport = segment.beginLocation.locationCode;
-                flightObject.departDateTime = rtnDepartDateTime;
-                flightObject.arrivalDateTime = rtnArrivalDateTime
-                flightObject.transitDepartDateTime = rtnTransitDepartDateTime
-                flightObject.transitArrivalDateTime = rtnTransitArrivalDateTime
-                flightObject.transitOperatingAirline = segment.opAirline.name
+                match = segment.equipment.name.match(/ [^]*/g);
+                if (match !== null) {
+                    flightObject.aircraftIcao = match[0].slice(1);
+                }
             }
-        });
+            flightObject.operatingAirline = segment.opAirline.name
+            flightObject.priceAdult = (rtnTravellerPrices.ADT === undefined) ? 0 : rtnTravellerPrices.ADT;
+            flightObject.priceChild = (rtnTravellerPrices.CHD === undefined) ? 0 : rtnTravellerPrices.CHD;
+            flightObject.priceInfant = (rtnTravellerPrices.INF === undefined) ? 0 : rtnTravellerPrices.INF;
+        }else{
+            rtnSegments.forEach(segment => {
+                if (segment.endLocation.locationCode !== req.body.origin) {
+                    flightObject.flightCode = segment.airline.code + segment.flightNumber;
+                    flightObject.type = 'direct'
+                    flightObject.departTerminal = segment.beginTerminal;
+                    flightObject.departDateTime = moment(segment.beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+                    flightObject.arrivalTerminal = segment.endTerminal;
+                    flightObject.arrivalDateTime = moment(segment.endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+                    flightObject.cabinClass = bookingClass._cabinClass;
+                    flightObject.bookingClass = flight.rbd;
+                    flightObject.class = flight.rbd;
+                    flightObject.currency = availability.currencyBean.code;
+                    flightObject.aircraftName = segment.equipment.name;
+                    flightObject.aircraftIata = segment.equipment.code;
+                    let match = segment.equipment.name.match(/ [^]*-/g)
+                    if (match !== null) {
+                        flightObject.aircraftIcao = match[0].slice(1, -1);
+                    } else {
+                        match = segment.equipment.name.match(/ [^]*/g);
+                        if (match !== null) {
+                            flightObject.aircraftIcao = match[0].slice(1);
+                        }
+                    }
+                    flightObject.operatingAirline = segment.opAirline.name
+                    flightObject.priceAdult = (rtnTravellerPrices.ADT === undefined) ? 0 : rtnTravellerPrices.ADT;
+                    flightObject.priceChild = (rtnTravellerPrices.CHD === undefined) ? 0 : rtnTravellerPrices.CHD;
+                    flightObject.priceInfant = (rtnTravellerPrices.INF === undefined) ? 0 : rtnTravellerPrices.INF;
+                } else {
+                    flightObject.type = 'transit'
+                    flightObject.transitFlightCode = segment.airline.code + segment.flightNumber;
+                    flightObject.transitDepartTerminal = rtnTransitDepartTerminal
+                    flightObject.transitArrivalTerminal = rtnTransitArrivalTerminal
+                    flightObject.departTerminal = rtnDepartTerminal;
+                    flightObject.arrivalTerminal = rtnArrivalTerminal;
+                    flightObject.transitAirport = segment.beginLocation.locationCode;
+                    flightObject.departDateTime = rtnDepartDateTime;
+                    flightObject.arrivalDateTime = rtnArrivalDateTime
+                    flightObject.transitDepartDateTime = rtnTransitDepartDateTime
+                    flightObject.transitArrivalDateTime = rtnTransitArrivalDateTime
+                    flightObject.transitOperatingAirline = segment.opAirline.name
+                }
+            });
+        }
         if (!rtnMap.has('' + flightObject._flightCode + flightObject._transitFlightCode)) {
             rtn.push(flightObject.toJson())
             rtnMap.set('' + flightObject._flightCode + flightObject._transitFlightCode)
