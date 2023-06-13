@@ -158,61 +158,88 @@ async function get_flight_info(req, searchForms, cookieIndex) {
         let dptArrivalTerminal = null;
         let dptTransitDepartTerminal = null;
         let dptTransitArrivalTerminal = null;
-        if (dptSegments.length <= 2) {
-            // if (!dptFlightMap.has('' + flightObject._flightCode + flightObject._transitFlightCode)) {
-            if (dptSegments.length == 2) {
-                dptDepartDateTime = moment(dptSegments[0].beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-                dptArrivalDateTime = moment(dptSegments[1].endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-                dptTransitDepartDateTime = moment(dptSegments[1].beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-                dptTransitArrivalDateTime = moment(dptSegments[0].endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-                dptDepartTerminal = dptSegments[0].beginTerminal;
-                dptArrivalTerminal = dptSegments[1].endTerminal;
-                dptTransitDepartTerminal = dptSegments[1].beginTerminal;
-                dptTransitArrivalTerminal = dptSegments[0].endTerminal;
-            }
+        if (dptSegments.length == 2) {
+            dptDepartDateTime = moment(dptSegments[0].beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+            dptArrivalDateTime = moment(dptSegments[1].endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+            dptTransitDepartDateTime = moment(dptSegments[1].beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+            dptTransitArrivalDateTime = moment(dptSegments[0].endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+            dptDepartTerminal = dptSegments[0].beginTerminal;
+            dptArrivalTerminal = dptSegments[1].endTerminal;
+            dptTransitDepartTerminal = dptSegments[1].beginTerminal;
+            dptTransitArrivalTerminal = dptSegments[0].endTerminal;
         }
-        dptSegments.forEach(segment => {
-            if (segment.endLocation.locationCode !== req.body.dest) {
-                flightObject.flightCode = segment.airline.code + segment.flightNumber;
-                flightObject.type = 'direct'
-                flightObject.departTerminal = segment.beginTerminal;
-                flightObject.departDateTime = moment(segment.beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-                flightObject.arrivalTerminal = segment.endTerminal;
-                flightObject.arrivalDateTime = moment(segment.endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
-                flightObject.cabinClass = bookingClass._cabinClass;
-                flightObject.bookingClass = flight.rbd;
-                flightObject.class = flight.rbd;
-                flightObject.currency = availability.currencyBean.code;
-                flightObject.aircraftName = segment.equipment.name;
-                flightObject.aircraftIata = segment.equipment.code;
-                let match = segment.equipment.name.match(/ [^]*-/g)
-                if (match !== null) {
-                    flightObject.aircraftIcao = match[0].slice(1, -1);
-                } else {
-                    match = segment.equipment.name.match(/ [^]*/g);
-                    if (match !== null) {
-                        flightObject.aircraftIcao = match[0].slice(1);
-                    }
-                }
-                flightObject.operatingAirline = segment.opAirline.name
-                flightObject.priceAdult = (dptTravellerPrices.ADT === undefined) ? 0 : dptTravellerPrices.ADT;
-                flightObject.priceChild = (dptTravellerPrices.CHD === undefined) ? 0 : dptTravellerPrices.CHD;
-                flightObject.priceInfant = (dptTravellerPrices.INF === undefined) ? 0 : dptTravellerPrices.INF;
+        if (dptSegments.length < 2) {
+            const segment = dptSegments[0];
+            flightObject.flightCode = segment.airline.code + segment.flightNumber;
+            flightObject.type = 'direct'
+            flightObject.departTerminal = segment.beginTerminal;
+            flightObject.departDateTime = moment(segment.beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+            flightObject.arrivalTerminal = segment.endTerminal;
+            flightObject.arrivalDateTime = moment(segment.endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+            flightObject.cabinClass = bookingClass._cabinClass;
+            flightObject.bookingClass = flight.rbd;
+            flightObject.class = flight.rbd;
+            flightObject.currency = availability.currencyBean.code;
+            flightObject.aircraftName = segment.equipment.name;
+            flightObject.aircraftIata = segment.equipment.code;
+            let match = segment.equipment.name.match(/ [^]*-/g)
+            if (match !== null) {
+                flightObject.aircraftIcao = match[0].slice(1, -1);
             } else {
-                flightObject.type = 'transit'
-                flightObject.transitFlightCode = segment.airline.code + segment.flightNumber;
-                flightObject.transitDepartTerminal = dptTransitDepartTerminal
-                flightObject.transitArrivalTerminal = dptTransitArrivalTerminal
-                flightObject.departTerminal = dptDepartTerminal;
-                flightObject.arrivalTerminal = dptArrivalTerminal;
-                flightObject.transitAirport = segment.beginLocation.locationCode;
-                flightObject.departDateTime = dptDepartDateTime;
-                flightObject.arrivalDateTime = dptArrivalDateTime
-                flightObject.transitDepartDateTime = dptTransitDepartDateTime
-                flightObject.transitArrivalDateTime = dptTransitArrivalDateTime
-                flightObject.transitOperatingAirline = segment.opAirline.name
+                match = segment.equipment.name.match(/ [^]*/g);
+                if (match !== null) {
+                    flightObject.aircraftIcao = match[0].slice(1);
+                }
             }
-        });
+            flightObject.operatingAirline = segment.opAirline.name
+            flightObject.priceAdult = (dptTravellerPrices.ADT === undefined) ? 0 : dptTravellerPrices.ADT;
+            flightObject.priceChild = (dptTravellerPrices.CHD === undefined) ? 0 : dptTravellerPrices.CHD;
+            flightObject.priceInfant = (dptTravellerPrices.INF === undefined) ? 0 : dptTravellerPrices.INF;
+        }else{
+            dptSegments.forEach(segment => {
+                if (segment.endLocation.locationCode !== req.body.dest) {
+                    flightObject.flightCode = segment.airline.code + segment.flightNumber;
+                    flightObject.type = 'direct'
+                    flightObject.departTerminal = segment.beginTerminal;
+                    flightObject.departDateTime = moment(segment.beginDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+                    flightObject.arrivalTerminal = segment.endTerminal;
+                    flightObject.arrivalDateTime = moment(segment.endDate, 'MMMM DD, YYYY h:mm:ss A').format('YYYY-MM-DD HH:mm:ss');
+                    flightObject.cabinClass = bookingClass._cabinClass;
+                    flightObject.bookingClass = flight.rbd;
+                    flightObject.class = flight.rbd;
+                    flightObject.currency = availability.currencyBean.code;
+                    flightObject.aircraftName = segment.equipment.name;
+                    flightObject.aircraftIata = segment.equipment.code;
+                    let match = segment.equipment.name.match(/ [^]*-/g)
+                    if (match !== null) {
+                        flightObject.aircraftIcao = match[0].slice(1, -1);
+                    } else {
+                        match = segment.equipment.name.match(/ [^]*/g);
+                        if (match !== null) {
+                            flightObject.aircraftIcao = match[0].slice(1);
+                        }
+                    }
+                    flightObject.operatingAirline = segment.opAirline.name
+                    flightObject.priceAdult = (dptTravellerPrices.ADT === undefined) ? 0 : dptTravellerPrices.ADT;
+                    flightObject.priceChild = (dptTravellerPrices.CHD === undefined) ? 0 : dptTravellerPrices.CHD;
+                    flightObject.priceInfant = (dptTravellerPrices.INF === undefined) ? 0 : dptTravellerPrices.INF;
+                } else {
+                    flightObject.type = 'transit'
+                    flightObject.transitFlightCode = segment.airline.code + segment.flightNumber;
+                    flightObject.transitDepartTerminal = dptTransitDepartTerminal
+                    flightObject.transitArrivalTerminal = dptTransitArrivalTerminal
+                    flightObject.departTerminal = dptDepartTerminal;
+                    flightObject.arrivalTerminal = dptArrivalTerminal;
+                    flightObject.transitAirport = segment.beginLocation.locationCode;
+                    flightObject.departDateTime = dptDepartDateTime;
+                    flightObject.arrivalDateTime = dptArrivalDateTime
+                    flightObject.transitDepartDateTime = dptTransitDepartDateTime
+                    flightObject.transitArrivalDateTime = dptTransitArrivalDateTime
+                    flightObject.transitOperatingAirline = segment.opAirline.name
+                }
+            });
+        }
+
         if (!dptMap.has('' + flightObject._flightCode + flightObject._transitFlightCode)) {
             res.push(flightObject.toJson())
             dptMap.set('' + flightObject._flightCode + flightObject._transitFlightCode)
@@ -244,6 +271,7 @@ async function getCookieFromRedis(cookieIndex) {
     const redisJson = await JSON.parse(redisValue);
     return redisJson.token;
 }
+
 const ecoBasic = new BookingClass('VNSHECB', 'ECO Basic', 'ECO');
 const ecoStandard = new BookingClass('VNSHECS', 'ECO Standard', 'ECO');
 const ecoFlex = new BookingClass('VNSHECF', 'ECO Flex ', 'ECO');
@@ -266,7 +294,6 @@ const CLASS_MAP = new Map([
     { key: 'J', value: businessFlex },
 ].map(obj => [obj.key, obj.value]));
 module.exports = one_way_process;
-
 
 /// VNSHECB: ECO Basic - R/Q/H/N
 /// VNSHBZF: Business Flex - J

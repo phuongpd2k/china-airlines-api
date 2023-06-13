@@ -9,21 +9,18 @@ const { cv } = require('opencv-wasm');
 const moment = require('moment');
 const redisClient = require('../config/redisClient');
 async function init_cookie() {
-	console.log("Start init cookie")
-	try {
-		for (let i = 1; i <= 5; i++) {
-			save_cookie(i)
-		}
-	} catch (error) {
-		console.error('An error occurred:', error.message);
+	for (let i = 1; i <= 5; i++) {
+		save_cookie(i).catch(e => console.error('An error occurred:', e.message))
 	}
 }
 async function save_cookie(i) {
 	try {
+		let currentTime = moment().format('YYYY-MM-DD HH:mm:ss');
+		console.log(`${currentTime}: Start crawl cookie ${i}`)
 		const cookie = await crawl_from_puppeteer();
 		if (cookie !== null && cookie !== undefined) {
-			if (cookie.includes('incap')) {
-				const currentTime = moment().format('YYYY-MM-DD HH:mm:ss');
+			if (cookie.includes('incap')) {	
+				currentTime = moment().format('YYYY-MM-DD HH:mm:ss');
 				const redisKey = `farelive-chinaairlines-auth-${i}`;
 				const redisValue = JSON.stringify({
 					token: cookie,
@@ -33,10 +30,10 @@ async function save_cookie(i) {
 				console.log(`${currentTime} redisCookie ${i} is saved`);
 				  return true;
 			} else {
-				console.log("Crawl cookie failed: Dont have required cookie")
+				console.log(`${currentTime}: Crawl cookie failed: Dont have required cookie`)
 			}
 		} else {
-			console.log("Crawl cookie failed: Cookie is null")
+			console.log(`${currentTime}: Crawl cookie failed: Cookie is null`)
 		}
 	} catch (error) {
 		console.error('An error occurred:', error.message);
@@ -46,16 +43,19 @@ async function save_cookie(i) {
 async function crawl_cookie() {
 	// Schedule a cron job to run every minute
 	schedule('*/4 * * * *', async () => {
-		console.log("Start crawl cookie")
-		try {
 			for (let i = 1; i <= 5; i++) {
-				const result = await save_cookie(i);
-				if(!result) i--;
+				let result = await save_cookie(i);
+				if(!result) {
+					retry_crawl(i).catch(e=> console.error('An error occurred:', error.message));
+				}
 			}
-		} catch (error) {
-			console.error('An error occurred:', error.message);
-		}
 	});
+}
+async function retry_crawl(i){
+	let result = await save_cookie(i);
+	while(!result) {
+		result = await save_cookie(i);
+	}
 }
 async function crawl_from_puppeteer() {
 	let result = '';
@@ -252,14 +252,13 @@ async function slidePuzzlePiece(page, center) {
 	await page.mouse.down();
 
 	let destX = handleX + center.x;
-	let destY = handle.y + handle.height / 3;
 	await page.mouse.move(destX, handleY, { steps: 25 });
 	await page.waitForTimeout(100)
 
 	// find the location of my puzzle piece.
 	const puzzlePos = await findMyPuzzlePiecePosition(page)
 	destX = destX + center.x - puzzlePos.x;
-	destY = handle.y + handle.height / 2;
+	let destY = handle.y + handle.height / 2;
 	await page.mouse.move(destX, destY, { steps: 25 })
 	await page.mouse.up()
 }
